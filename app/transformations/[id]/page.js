@@ -14,11 +14,12 @@ import ReactFlow, {
 import "reactflow/dist/style.css";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, Save, Play, Sparkles } from "lucide-react";
+import { ArrowLeft, Save, Play, Sparkles, Loader2, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { mockTransformations } from "@/lib/mock-data/transformations";
 import { NodePalette } from "@/components/canvas/NodePalette";
 import { PromptTooltip } from "@/components/shared/PromptTooltip";
+import { toast } from "sonner";
 
 const nodeTypes = {
   source: ({ data }) => (
@@ -65,9 +66,11 @@ function TransformationCanvas() {
       const type = event.dataTransfer.getData("application/reactflow");
       if (!type) return;
 
+      const reactFlowBounds = event.currentTarget.getBoundingClientRect();
+      
       const position = {
-        x: event.clientX - 300,
-        y: event.clientY - 100,
+        x: event.clientX - reactFlowBounds.left,
+        y: event.clientY - reactFlowBounds.top,
       };
 
       const newNode = {
@@ -81,6 +84,7 @@ function TransformationCanvas() {
       };
 
       setNodes((nds) => nds.concat(newNode));
+      toast.success(`${type} node added to canvas`);
     },
     [setNodes]
   );
@@ -112,7 +116,34 @@ function TransformationCanvas() {
 
 export default function TransformationPage() {
   const params = useParams();
+  const [isRunning, setIsRunning] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
   const transformation = mockTransformations.find(t => t.id === params.id);
+
+  const handleRunPipeline = () => {
+    setIsRunning(true);
+    toast.info('Pipeline execution started...');
+    
+    setTimeout(() => {
+      setIsRunning(false);
+      toast.success('Pipeline completed successfully!', {
+        description: 'Data loaded to target destination',
+        duration: 5000,
+      });
+    }, 3000);
+  };
+
+  const handleSave = () => {
+    setIsSaved(true);
+    toast.success('Pipeline saved successfully');
+    setTimeout(() => setIsSaved(false), 2000);
+  };
+
+  const handleAIAssist = () => {
+    toast.info('AI is analyzing your pipeline...', {
+      description: 'This feature will be available soon',
+    });
+  };
 
   return (
     <div className="space-y-4">
@@ -130,18 +161,36 @@ export default function TransformationPage() {
         </div>
         <div className="flex items-center space-x-2">
           <PromptTooltip content="AI can help you design this transformation">
-            <Button variant="outline">
+            <Button variant="outline" onClick={handleAIAssist}>
               <Sparkles className="mr-2 h-4 w-4" />
               AI Assist
             </Button>
           </PromptTooltip>
-          <Button variant="outline">
-            <Save className="mr-2 h-4 w-4" />
-            Save
+          <Button variant="outline" onClick={handleSave} disabled={isSaved}>
+            {isSaved ? (
+              <>
+                <CheckCircle2 className="mr-2 h-4 w-4 text-green-500" />
+                Saved
+              </>
+            ) : (
+              <>
+                <Save className="mr-2 h-4 w-4" />
+                Save
+              </>
+            )}
           </Button>
-          <Button>
-            <Play className="mr-2 h-4 w-4" />
-            Run Pipeline
+          <Button onClick={handleRunPipeline} disabled={isRunning}>
+            {isRunning ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Running...
+              </>
+            ) : (
+              <>
+                <Play className="mr-2 h-4 w-4" />
+                Run Pipeline
+              </>
+            )}
           </Button>
         </div>
       </div>
