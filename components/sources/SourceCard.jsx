@@ -3,7 +3,7 @@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Database, FileText, HardDrive, MoreVertical, Play, Eye } from "lucide-react";
+import { Database, FileText, HardDrive, MoreVertical, Play, Eye, Trash2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import {
   DropdownMenu,
@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SampleDataPreview } from "./SampleDataPreview";
 import { useState } from "react";
+import { useSourceStore } from "@/lib/store/sourceStore";
+import { toast } from "sonner";
 
 const typeIcons = {
   csv: FileText,
@@ -32,6 +34,19 @@ export function SourceCard({ source }) {
   const Icon = typeIcons[source.type];
   const colorClass = typeColors[source.type];
   const [showSample, setShowSample] = useState(false);
+  const { removeSource } = useSourceStore();
+
+  const handleDelete = () => {
+    removeSource(source.id);
+    toast.success('Source deleted successfully');
+  };
+
+  const handleIngest = () => {
+    toast.info(`Starting ingestion from ${source.name}...`);
+    setTimeout(() => {
+      toast.success(`Ingestion completed for ${source.name}`);
+    }, 2000);
+  };
 
   return (
     <>
@@ -65,9 +80,13 @@ export function SourceCard({ source }) {
                   <Eye className="mr-2 h-4 w-4" />
                   View Sample
                 </DropdownMenuItem>
-                <DropdownMenuItem>
+                <DropdownMenuItem onClick={handleIngest}>
                   <Play className="mr-2 h-4 w-4" />
                   Ingest Now
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleDelete} className="text-red-600">
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -103,7 +122,7 @@ export function SourceCard({ source }) {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Tables:</span>
-                  <span className="font-medium">{source.metadata.tables.join(", ")}</span>
+                  <span className="font-medium">{source.metadata.tables?.join(", ")}</span>
                 </div>
               </>
             )}
@@ -119,7 +138,7 @@ export function SourceCard({ source }) {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Tables:</span>
-                  <span className="font-medium">{source.metadata.tables.join(", ")}</span>
+                  <span className="font-medium">{source.metadata.tables?.join(", ")}</span>
                 </div>
               </>
             )}
