@@ -1,0 +1,75 @@
+"use client";
+
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Brain, Database, GitBranch, Settings, Home, FileJson } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+const routes = [
+  {
+    label: "Data Sources",
+    icon: Database,
+    href: "/sources",
+    color: "text-green-500"
+  },
+  {
+    label: "Transformations",
+    icon: GitBranch,
+    href: "/transformations",
+    color: "text-blue-500"
+  },
+  {
+    label: "Samples",
+    icon: FileJson,
+    href: "/samples",
+    color: "text-purple-500"
+  },
+  {
+    label: "Settings",
+    icon: Settings,
+    href: "/settings",
+    color: "text-gray-500"
+  }
+];
+
+export function Sidebar() {
+  const pathname = usePathname();
+
+  return (
+    <div className="space-y-4 py-4 flex flex-col h-full bg-card border-r">
+      <div className="px-3 py-2 flex-1">
+        <Link href="/sources" className="flex items-center pl-3 mb-8">
+          <div className="relative h-8 w-8 mr-2">
+            <Brain className="h-8 w-8 text-primary" />
+          </div>
+          <h1 className="text-xl font-bold">SynKrasis.ai</h1>
+        </Link>
+        <div className="space-y-1">
+          {routes.map((route) => (
+            <Button
+              key={route.href}
+              variant={pathname === route.href ? "secondary" : "ghost"}
+              className={cn(
+                "w-full justify-start",
+                pathname === route.href && "bg-secondary"
+              )}
+              asChild
+            >
+              <Link href={route.href}>
+                <route.icon className={cn("h-5 w-5 mr-3", route.color)} />
+                {route.label}
+              </Link>
+            </Button>
+          ))}
+        </div>
+      </div>
+      <div className="px-3 py-2">
+        <div className="bg-gradient-to-r from-primary/10 to-purple-500/10 p-3 rounded-lg">
+          <p className="text-xs text-muted-foreground mb-2">AI Assistant</p>
+          <p className="text-sm">✨ Ask me about your data</p>
+        </div>
+      </div>
+    </div>
+  );
+}
