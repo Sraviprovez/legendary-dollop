@@ -112,7 +112,7 @@ function NewTransformationCanvas() {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
-  const [isRunning, setIsRunning] = useState(false);
+  const [isPipelineRunning, setIsPipelineRunning] = useState(false);
   const [showAIPanel, setShowAIPanel] = useState(false);
 
   const onConnect = useCallback(
