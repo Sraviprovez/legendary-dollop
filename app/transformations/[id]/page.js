@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useParams } from "next/navigation";
 import ReactFlow, {
   Background,
@@ -16,12 +16,14 @@ import ReactFlow, {
 import "reactflow/dist/style.css";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, Save, Play, Sparkles, Loader2, CheckCircle2, Trash2, Zap } from "lucide-react";
+import { ArrowLeft, Save, Play, Sparkles, Loader2, Trash2, Zap } from "lucide-react";
 import Link from "next/link";
 import { mockTransformations } from "@/lib/mock-data/transformations";
 import { NodePalette } from "@/components/canvas/NodePalette";
 import { PromptTooltip } from "@/components/shared/PromptTooltip";
 import { toast } from "sonner";
+import { v4 as uuidv4 } from 'uuid';
+import { AISuggestionPanel } from "@/components/ai/AISuggestionPanel";
 
 const nodeTypes = {
   source: ({ data, selected }) => (
@@ -72,19 +74,51 @@ function TransformationCanvas() {
   const transformation = mockTransformations.find(t => t.id === params.id);
   const reactFlowWrapper = useRef(null);
   
-  const [nodes, setNodes, onNodesChange] = useNodesState(transformation?.nodes || []);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(transformation?.edges || []);
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
+  const [isRunning, setIsRunning] = useState(false);
+  const [showAIPanel, setShowAIPanel] = useState(false);
 
-  const onConnect = useCallback(
-    (params) => {
-      const edgeWithArrows = {
-        ...params,
+  useEffect(() => {
+    if (transformation) {
+      const updatedNodes = transformation.nodes.map(node => ({
+        ...node,
+        id: node.id || `${node.type}-${uuidv4()}`,
+        data: {
+          ...node.data,
+          label: node.data?.label || `${node.type} node`,
+        }
+      }));
+      setNodes(updatedNodes);
+      
+      const updatedEdges = transformation.edges.map(edge => ({
+        ...edge,
+        id: edge.id || `edge-${uuidv4()}`,
         markerEnd: {
           type: MarkerType.ArrowClosed,
           color: '#888',
         },
         style: { stroke: '#888', strokeWidth: 2 },
+        animated: true,
+        type: 'smoothstep',
+      }));
+      setEdges(updatedEdges);
+    }
+  }, [transformation, setNodes, setEdges]);
+
+  const onConnect = useCallback(
+    (params) => {
+      const edgeWithArrows = {
+        ...params,
+        id: `edge-${uuidv4()}`,
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          color: '#888',
+        },
+        style: { stroke: '#888', strokeWidth: 2 },
+        animated: true,
+        type: 'smoothstep',
       };
       setEdges((eds) => addEdge(edgeWithArrows, eds));
       toast.success('Connection created!');
@@ -112,7 +146,7 @@ function TransformationCanvas() {
       });
 
       const newNode = {
-        id: `${type}-${Date.now()}`,
+        id: `${type}-${uuidv4()}`,
         type,
         position,
         data: { 
@@ -138,61 +172,6 @@ function TransformationCanvas() {
     toast.info('Selected items deleted');
   }, [setNodes, setEdges]);
 
-  if (!transformation) {
-    return <div className="flex items-center justify-center h-full">Transformation not found</div>;
-  }
-
-  return (
-    <div className="h-[calc(100vh-120px)] w-full" ref={reactFlowWrapper}>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        onDragOver={onDragOver}
-        onDrop={onDrop}
-        onInit={onInit}
-        nodeTypes={nodeTypes}
-        fitView
-        snapToGrid={true}
-        snapGrid={[15, 15]}
-        defaultEdgeOptions={{
-          type: 'smoothstep',
-          animated: true,
-          style: { stroke: '#888', strokeWidth: 2 },
-          markerEnd: { type: MarkerType.ArrowClosed, color: '#888' },
-        }}
-      >
-        <Background color="#aaa" gap={16} />
-        <Controls />
-        <MiniMap 
-          nodeColor={(node) => {
-            switch (node.type) {
-              case 'source': return '#22c55e';
-              case 'transform': return '#3b82f6';
-              case 'target': return '#a855f7';
-              default: return '#aaa';
-            }
-          }}
-        />
-        <Panel position="top-right" className="bg-background/80 backdrop-blur-sm p-2 rounded-lg shadow-lg">
-          <Button variant="destructive" size="sm" onClick={onDeleteSelected}>
-            <Trash2 className="h-4 w-4 mr-2" />
-            Delete Selected
-          </Button>
-        </Panel>
-      </ReactFlow>
-    </div>
-  );
-}
-
-export default function TransformationPage() {
-  const params = useParams();
-  const [isRunning, setIsRunning] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
-  const transformation = mockTransformations.find(t => t.id === params.id);
-
   const handleRunPipeline = () => {
     setIsRunning(true);
     toast.info('Pipeline execution started...');
@@ -215,16 +194,39 @@ export default function TransformationPage() {
   };
 
   const handleSave = () => {
-    setIsSaved(true);
     toast.success('Pipeline saved successfully');
-    setTimeout(() => setIsSaved(false), 2000);
   };
 
   const handleAIAssist = () => {
-    toast.info('🤖 AI is analyzing your pipeline...', {
-      description: 'Opening AI assistant...',
+    setShowAIPanel(true);
+    toast.info('🤖 AI Assistant', {
+      description: 'Opening AI suggestions panel...',
     });
   };
+
+  const handleApplySuggestion = (suggestion) => {
+    if (suggestion.left && suggestion.right) {
+      toast.success(`Join suggestion applied: ${suggestion.left} → ${suggestion.right}`);
+    } else if (suggestion.name) {
+      const nodeType = suggestion.type === 'snowflake' || suggestion.type === 'aurora' ? 'target' : 'transform';
+      const newNode = {
+        id: `${nodeType}-${uuidv4()}`,
+        type: nodeType,
+        position: { x: 400, y: 200 },
+        data: { 
+          label: suggestion.name,
+          type: suggestion.type
+        },
+      };
+      setNodes((nds) => nds.concat(newNode));
+      toast.success(`Added: ${suggestion.name}`);
+    }
+    setShowAIPanel(false);
+  };
+
+  if (!transformation) {
+    return <div className="flex items-center justify-center h-full">Transformation not found</div>;
+  }
 
   return (
     <div className="space-y-4 p-4">
@@ -247,24 +249,15 @@ export default function TransformationPage() {
               AI Assist
             </Button>
           </PromptTooltip>
-          <Button variant="outline" onClick={handleSave} disabled={isSaved}>
-            {isSaved ? (
-              <>
-                <CheckCircle2 className="mr-2 h-4 w-4 text-green-500" />
-                Saved
-              </>
-            ) : (
-              <>
-                <Save className="mr-2 h-4 w-4" />
-                Save
-              </>
-            )}
+          <Button variant="outline" onClick={handleSave}>
+            <Save className="mr-2 h-4 w-4" />
+            Save
           </Button>
           <Button onClick={handleRunPipeline} disabled={isRunning}>
             {isRunning ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Running (3s)...
+                Running...
               </>
             ) : (
               <>
@@ -291,12 +284,64 @@ export default function TransformationPage() {
           </div>
         </Card>
         
-        <Card className="flex-1 h-[calc(100vh-200px)] overflow-hidden">
-          <ReactFlowProvider>
-            <TransformationCanvas />
-          </ReactFlowProvider>
+        <Card className="flex-1 h-[calc(100vh-200px)] overflow-hidden" ref={reactFlowWrapper}>
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            onDragOver={onDragOver}
+            onDrop={onDrop}
+            onInit={onInit}
+            nodeTypes={nodeTypes}
+            fitView
+            snapToGrid={true}
+            snapGrid={[15, 15]}
+            defaultEdgeOptions={{
+              type: 'smoothstep',
+              animated: true,
+              style: { stroke: '#888', strokeWidth: 2 },
+              markerEnd: { type: MarkerType.ArrowClosed, color: '#888' },
+            }}
+          >
+            <Background color="#aaa" gap={16} />
+            <Controls />
+            <MiniMap 
+              nodeColor={(node) => {
+                switch (node.type) {
+                  case 'source': return '#22c55e';
+                  case 'transform': return '#3b82f6';
+                  case 'target': return '#a855f7';
+                  default: return '#aaa';
+                }
+              }}
+            />
+            <Panel position="top-right" className="bg-background/80 backdrop-blur-sm p-2 rounded-lg shadow-lg">
+              <Button variant="destructive" size="sm" onClick={onDeleteSelected}>
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Selected
+              </Button>
+            </Panel>
+          </ReactFlow>
         </Card>
       </div>
+
+      {showAIPanel && (
+        <AISuggestionPanel 
+          onClose={() => setShowAIPanel(false)}
+          onApplySuggestion={handleApplySuggestion}
+          nodes={nodes}
+        />
+      )}
     </div>
+  );
+}
+
+export default function TransformationPage() {
+  return (
+    <ReactFlowProvider>
+      <TransformationCanvas />
+    </ReactFlowProvider>
   );
 }
