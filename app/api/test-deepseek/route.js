@@ -2,57 +2,53 @@ import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {
-    const apiKey = process.env.DEEPSEEK_API_KEY;
-    
+    const apiKey = process.env.OPENROUTER_API_KEY;
+
     const diagnostics = {
       apiKeyPresent: !!apiKey,
       apiKeyPrefix: apiKey ? apiKey.substring(0, 5) + '...' : 'none',
       nodeEnv: process.env.NODE_ENV,
       timestamp: new Date().toISOString()
     };
-    
+
     if (!apiKey) {
       return NextResponse.json({
         status: 'error',
-        message: 'DeepSeek API key not found in environment',
+        message: 'OpenRouter API key not found in .env.local',
         diagnostics,
-        instructions: 'Add DEEPSEEK_API_KEY to .env.local file'
+        fix: 'Add OPENROUTER_API_KEY=your-key-here to .env.local'
       }, { status: 500 });
     }
-    
-    // Test API connection
-    const response = await fetch('https://api.deepseek.com/v1/models', {
+
+    // Test OpenRouter connection
+    const response = await fetch('https://openrouter.ai/api/v1/auth/key', {
       headers: {
         'Authorization': `Bearer ${apiKey}`
       }
     });
-    
+
     if (!response.ok) {
-      const error = await response.text();
       return NextResponse.json({
         status: 'error',
-        message: 'Failed to connect to DeepSeek API',
-        apiResponse: { status: response.status, error },
+        message: 'Invalid OpenRouter API key',
         diagnostics
       }, { status: 500 });
     }
-    
+
     const data = await response.json();
-    
+
     return NextResponse.json({
       status: 'success',
-      message: 'DeepSeek API connection successful!',
-      models: data,
-      diagnostics,
-      credits: '$9 available (approx 64,000 analyses)'
+      message: 'OpenRouter API connection successful!',
+      data,
+      diagnostics
     });
-    
+
   } catch (error) {
     return NextResponse.json({
       status: 'error',
       message: error.message,
       diagnostics: {
-        apiKeyPresent: !!process.env.DEEPSEEK_API_KEY,
         error: error.toString()
       }
     }, { status: 500 });

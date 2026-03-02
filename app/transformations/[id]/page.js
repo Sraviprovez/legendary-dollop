@@ -27,25 +27,40 @@ import { toast } from "sonner";
 import { v4 as uuidv4 } from 'uuid';
 import { AISuggestionPanel } from "@/components/ai/AISuggestionPanel";
 
+const getNodeClasses = (selected, status) => {
+  let base = selected ? 'ring-2 ring-yellow-400 ring-offset-2 ' : '';
+  if (status === 'running') base += 'ring-4 ring-yellow-300 ring-offset-2 animate-pulse scale-105 transition-all duration-300 shadow-[0_0_15px_rgba(253,224,71,0.5)] ';
+  if (status === 'pending') base += 'opacity-50 grayscale transition-all duration-300 ';
+  if (status === 'completed') base += 'ring-2 ring-green-400 ring-[3px] ring-offset-1 transition-all duration-300 ';
+  return base;
+};
+
+const NodeStatusBadge = ({ status }) => {
+  if (status === 'running') {
+    return <div className="absolute -top-3 -right-3 bg-yellow-400 rounded-full p-1.5 shadow-lg animate-spin z-10"><Loader2 className="w-4 h-4 text-yellow-900" /></div>;
+  }
+  if (status === 'completed') {
+    return <div className="absolute -top-3 -right-3 bg-green-500 rounded-full p-1.5 shadow-lg z-10"><Check className="w-4 h-4 text-white" /></div>;
+  }
+  return null;
+};
+
 const nodeTypes = {
   source: ({ data, selected }) => (
-    <div className={`px-4 py-3 shadow-lg rounded-lg bg-gradient-to-r from-green-600 to-green-500 text-white node-source min-w-[180px] relative ${
-      selected ? 'ring-2 ring-yellow-400 ring-offset-2' : ''
-    }`}>
-      {/* Handle for OUTGOING connections */}
+    <div className={`px-4 py-3 shadow-lg rounded-lg bg-gradient-to-r from-green-600 to-green-500 text-white node-source min-w-[180px] relative ${getNodeClasses(selected, data.status)
+      }`}>
+      <NodeStatusBadge status={data.status} />
       <Handle
         type="source"
         position={Position.Right}
         className="!bg-white !border-2 !border-green-700 !w-4 !h-4"
       />
-      
-      {/* Handle for INCOMING connections */}
       <Handle
         type="target"
         position={Position.Left}
         className="!bg-white !border-2 !border-green-700 !w-4 !h-4"
       />
-      
+
       <div className="font-bold text-base flex items-center justify-between">
         <span>{data.label}</span>
         <span className="text-xs bg-green-700 px-2 py-0.5 rounded-full">SOURCE</span>
@@ -57,23 +72,20 @@ const nodeTypes = {
     </div>
   ),
   transform: ({ data, selected }) => (
-    <div className={`px-4 py-3 shadow-lg rounded-lg bg-gradient-to-r from-blue-600 to-blue-500 text-white node-transform min-w-[180px] relative ${
-      selected ? 'ring-2 ring-yellow-400 ring-offset-2' : ''
-    }`}>
-      {/* Handle for INCOMING connections */}
+    <div className={`px-4 py-3 shadow-lg rounded-lg bg-gradient-to-r from-blue-600 to-blue-500 text-white node-transform min-w-[180px] relative ${getNodeClasses(selected, data.status)
+      }`}>
+      <NodeStatusBadge status={data.status} />
       <Handle
         type="target"
         position={Position.Left}
         className="!bg-white !border-2 !border-blue-700 !w-4 !h-4"
       />
-      
-      {/* Handle for OUTGOING connections */}
       <Handle
         type="source"
         position={Position.Right}
         className="!bg-white !border-2 !border-blue-700 !w-4 !h-4"
       />
-      
+
       <div className="font-bold text-base flex items-center justify-between">
         <span>{data.label}</span>
         <span className="text-xs bg-blue-700 px-2 py-0.5 rounded-full">TRANSFORM</span>
@@ -85,16 +97,15 @@ const nodeTypes = {
     </div>
   ),
   target: ({ data, selected }) => (
-    <div className={`px-4 py-3 shadow-lg rounded-lg bg-gradient-to-r from-purple-600 to-purple-500 text-white node-target min-w-[180px] relative ${
-      selected ? 'ring-2 ring-yellow-400 ring-offset-2' : ''
-    }`}>
-      {/* Handle for INCOMING connections */}
+    <div className={`px-4 py-3 shadow-lg rounded-lg bg-gradient-to-r from-purple-600 to-purple-500 text-white node-target min-w-[180px] relative ${getNodeClasses(selected, data.status)
+      }`}>
+      <NodeStatusBadge status={data.status} />
       <Handle
         type="target"
         position={Position.Left}
         className="!bg-white !border-2 !border-purple-700 !w-4 !h-4"
       />
-      
+
       <div className="font-bold text-base flex items-center justify-between">
         <span>{data.label}</span>
         <span className="text-xs bg-purple-700 px-2 py-0.5 rounded-full">TARGET</span>
@@ -110,13 +121,51 @@ function TransformationCanvas() {
   const params = useParams();
   const transformation = mockTransformations.find(t => t.id === params.id);
   const reactFlowWrapper = useRef(null);
-  
+
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
   const [isPipelineRunning, setIsPipelineRunning] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [showAIPanel, setShowAIPanel] = useState(false);
+
+  // Listen for Kaavya thinking events and jiggle nodes
+  useEffect(() => {
+    const handleKaavyaThinking = () => {
+      if (nodes.length === 0) return;
+      const originals = nodes.map(n => ({ id: n.id, x: n.position.x, y: n.position.y }));
+      setNodes(nds => nds.map(n => ({
+        ...n,
+        position: {
+          x: n.position.x + (Math.random() - 0.5) * 20,
+          y: n.position.y + (Math.random() - 0.5) * 20,
+        }
+      })));
+      setTimeout(() => {
+        setNodes(nds => nds.map(n => {
+          const orig = originals.find(o => o.id === n.id);
+          return orig ? { ...n, position: { x: orig.x, y: orig.y } } : n;
+        }));
+      }, 600);
+      setTimeout(() => {
+        setNodes(nds => nds.map(n => ({
+          ...n,
+          position: {
+            x: n.position.x + (Math.random() - 0.5) * 12,
+            y: n.position.y + (Math.random() - 0.5) * 12,
+          }
+        })));
+      }, 1200);
+      setTimeout(() => {
+        setNodes(nds => nds.map(n => {
+          const orig = originals.find(o => o.id === n.id);
+          return orig ? { ...n, position: { x: orig.x, y: orig.y } } : n;
+        }));
+      }, 1800);
+    };
+    window.addEventListener('kaavya-thinking', handleKaavyaThinking);
+    return () => window.removeEventListener('kaavya-thinking', handleKaavyaThinking);
+  }, [nodes, setNodes]);
 
   useEffect(() => {
     if (transformation) {
@@ -129,7 +178,7 @@ function TransformationCanvas() {
         }
       }));
       setNodes(updatedNodes);
-      
+
       const updatedEdges = transformation.edges.map(edge => ({
         ...edge,
         id: edge.id || `edge-${uuidv4()}`,
@@ -152,17 +201,17 @@ function TransformationCanvas() {
         toast.error('Cannot connect node to itself');
         return;
       }
-      
+
       // Check if connection already exists
-      const exists = edges.some(e => 
+      const exists = edges.some(e =>
         e.source === params.source && e.target === params.target
       );
-      
+
       if (exists) {
         toast.error('Connection already exists');
         return;
       }
-      
+
       const edgeWithArrows = {
         ...params,
         id: `edge-${uuidv4()}`,
@@ -193,7 +242,7 @@ function TransformationCanvas() {
       if (!type || !reactFlowInstance) return;
 
       const reactFlowBounds = reactFlowWrapper.current.getBoundingClientRect();
-      
+
       const position = reactFlowInstance.project({
         x: event.clientX - reactFlowBounds.left,
         y: event.clientY - reactFlowBounds.top,
@@ -203,7 +252,7 @@ function TransformationCanvas() {
         id: `${type}-${uuidv4()}`,
         type,
         position,
-        data: { 
+        data: {
           label: `${type === 'source' ? 'New Source' : type === 'transform' ? 'New Transform' : 'New Target'}`,
           type: type === 'source' ? 'csv' : type === 'transform' ? 'pyspark' : 'snowflake',
           sourceType: type === 'source' ? 'postgresql' : undefined
@@ -227,24 +276,58 @@ function TransformationCanvas() {
   }, [setNodes, setEdges]);
 
   const handleRunPipeline = () => {
+    if (nodes.length === 0) {
+      toast.error('Add at least one node to run pipeline');
+      return;
+    }
     setIsPipelineRunning(true);
-    toast.info('Pipeline execution started...');
-    
+
+    // Set all nodes to pending
+    setNodes(nds => nds.map(n => ({ ...n, data: { ...n.data, status: 'pending' } })));
+    toast.info('🚀 Pipeline execution started...');
+
+    // Stage 1: Extractor (Source)
     setTimeout(() => {
-      toast.success('✓ Data extracted from sources', { duration: 2000 });
-    }, 1000);
-    
+      setNodes(nds => nds.map(n => n.type === 'source' ? { ...n, data: { ...n.data, status: 'running' } } : n));
+      toast.info('Extracting data from sources...', { duration: 1500 });
+    }, 500);
+
+    // Stage 2: Transform
     setTimeout(() => {
-      toast.success('✓ Transformations applied', { duration: 2000 });
+      setNodes(nds => nds.map(n => {
+        if (n.type === 'source') return { ...n, data: { ...n.data, status: 'completed' } };
+        if (n.type === 'transform') return { ...n, data: { ...n.data, status: 'running' } };
+        return n;
+      }));
+      toast.info('Transforming data...', { duration: 1500 });
     }, 2000);
-    
+
+    // Stage 3: Load (Target)
     setTimeout(() => {
+      setNodes(nds => nds.map(n => {
+        if (n.type === 'transform') return { ...n, data: { ...n.data, status: 'completed' } };
+        if (n.type === 'target') return { ...n, data: { ...n.data, status: 'running' } };
+        return n;
+      }));
+      toast.info('Loading data to destination...', { duration: 1500 });
+    }, 3500);
+
+    // Stage 4: Finish
+    setTimeout(() => {
+      setNodes(nds => nds.map(n => ({ ...n, data: { ...n.data, status: 'completed' } })));
       setIsPipelineRunning(false);
       toast.success('✅ Pipeline completed successfully!', {
-        description: 'Data loaded to target destination',
+        description: 'All operations finished and data is loaded.',
         duration: 5000,
       });
-    }, 3000);
+      // clear status after a while
+      setTimeout(() => {
+        setNodes(nds => nds.map(n => {
+          const { status, ...restData } = n.data;
+          return { ...n, data: restData };
+        }));
+      }, 5000);
+    }, 5000);
   };
 
   const handleSave = () => {
@@ -260,6 +343,56 @@ function TransformationCanvas() {
 
   const handleApplySuggestion = (suggestion) => {
     if (suggestion.left && suggestion.right) {
+      // 1. Create the join node
+      const joinNodeId = `transform-${uuidv4()}`;
+      const joinNode = {
+        id: joinNodeId,
+        type: 'transform',
+        position: { x: 400, y: 200 },
+        data: {
+          label: `Join: ${suggestion.left.split('.')[0]} & ${suggestion.right.split('.')[0]}`,
+          type: 'join',
+        },
+      };
+
+      setNodes((nds) => nds.concat(joinNode));
+
+      // 2. Automatically connect to relevant sources if they exist on canvas
+      const leftTableName = suggestion.left.split('.')[0].toLowerCase();
+      const rightTableName = suggestion.right.split('.')[0].toLowerCase();
+
+      const leftNode = nodes.find(n => n.data?.label?.toLowerCase().includes(leftTableName));
+      const rightNode = nodes.find(n => n.data?.label?.toLowerCase().includes(rightTableName));
+
+      const newEdges = [];
+      if (leftNode) {
+        newEdges.push({
+          id: `edge-${uuidv4()}`,
+          source: leftNode.id,
+          target: joinNodeId,
+          markerEnd: { type: MarkerType.ArrowClosed, color: '#3b82f6' },
+          style: { stroke: '#3b82f6', strokeWidth: 3 },
+          animated: true,
+          type: 'smoothstep',
+        });
+      }
+      if (rightNode) {
+        newEdges.push({
+          id: `edge-${uuidv4()}`,
+          source: rightNode.id,
+          target: joinNodeId,
+          markerEnd: { type: MarkerType.ArrowClosed, color: '#3b82f6' },
+          style: { stroke: '#3b82f6', strokeWidth: 3 },
+          animated: true,
+          type: 'smoothstep',
+        });
+      }
+
+      if (newEdges.length > 0) {
+        setEdges((eds) => eds.concat(newEdges));
+        toast.success(`Join automatically connected to source nodes.`);
+      }
+
       toast.success(`Join suggestion applied: ${suggestion.left} → ${suggestion.right}`);
     } else if (suggestion.name) {
       const nodeType = suggestion.type === 'snowflake' || suggestion.type === 'aurora' ? 'target' : 'transform';
@@ -267,7 +400,7 @@ function TransformationCanvas() {
         id: `${nodeType}-${uuidv4()}`,
         type: nodeType,
         position: { x: 400, y: 200 },
-        data: { 
+        data: {
           label: suggestion.name,
           type: suggestion.type
         },
@@ -337,7 +470,7 @@ function TransformationCanvas() {
             <p>3. Drop on another node</p>
           </div>
         </Card>
-        
+
         <Card className="flex-1 h-[calc(100vh-200px)] overflow-hidden" ref={reactFlowWrapper}>
           <ReactFlow
             nodes={nodes}
@@ -361,7 +494,7 @@ function TransformationCanvas() {
           >
             <Background color="#aaa" gap={16} />
             <Controls />
-            <MiniMap 
+            <MiniMap
               nodeColor={(node) => {
                 switch (node.type) {
                   case 'source': return '#22c55e';
@@ -382,7 +515,7 @@ function TransformationCanvas() {
       </div>
 
       {showAIPanel && (
-        <AISuggestionPanel 
+        <AISuggestionPanel
           onClose={() => setShowAIPanel(false)}
           onApplySuggestion={handleApplySuggestion}
           nodes={nodes}
