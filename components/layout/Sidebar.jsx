@@ -2,11 +2,17 @@
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Brain, Database, GitBranch, Settings, Home, FileJson } from "lucide-react";
+import { Brain, Database, GitBranch, Home, FileJson, Shield } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const routes = [
+  {
+    label: "Dashboard",
+    icon: Home,
+    href: "/sources",
+    color: "text-sky-500"
+  },
   {
     label: "Data Sources",
     icon: Database,
@@ -26,10 +32,10 @@ const routes = [
     color: "text-purple-500"
   },
   {
-    label: "Settings",
-    icon: Settings,
-    href: "/settings",
-    color: "text-gray-500"
+    label: "Data Quality",
+    icon: Shield,
+    href: "/quality",
+    color: "text-orange-500"
   }
 ];
 
