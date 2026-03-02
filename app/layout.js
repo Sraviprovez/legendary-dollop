@@ -21,9 +21,15 @@ export default function RootLayout({ children }) {
           enableSystem={false}
           storageKey="synkrasis-theme"
         >
-          <TooltipProvider>
+          <TooltipProvider delayDuration={200}>
             {children}
-            <Toaster position="top-right" richColors />
+            <Toaster 
+              position="top-right"
+              richColors 
+              closeButton
+              expand={true}
+              visibleToasts={3}
+            />
           </TooltipProvider>
         </ThemeProvider>
       </body>
