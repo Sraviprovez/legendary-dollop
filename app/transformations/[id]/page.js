@@ -227,7 +227,7 @@ function TransformationCanvas() {
   }, [setNodes, setEdges]);
 
   const handleRunPipeline = () => {
-    setIsRunning(true);
+    setIsPipelineRunning(true);
     toast.info('Pipeline execution started...');
     
     setTimeout(() => {
@@ -239,7 +239,7 @@ function TransformationCanvas() {
     }, 2000);
     
     setTimeout(() => {
-      setIsRunning(false);
+      setIsPipelineRunning(false);
       toast.success('✅ Pipeline completed successfully!', {
         description: 'Data loaded to target destination',
         duration: 5000,
