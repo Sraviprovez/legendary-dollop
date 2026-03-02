@@ -354,7 +354,7 @@ function TransformationCanvas() {
             snapGrid={[15, 15]}
             defaultEdgeOptions={{
               type: 'smoothstep',
-              animated: true,
+              animated: isPipelineRunning,
               style: { stroke: '#888', strokeWidth: 2 },
               markerEnd: { type: MarkerType.ArrowClosed, color: '#888' },
             }}
