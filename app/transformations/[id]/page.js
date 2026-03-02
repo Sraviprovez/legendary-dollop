@@ -12,6 +12,8 @@ import ReactFlow, {
   ReactFlowProvider,
   Panel,
   MarkerType,
+  Handle,
+  Position,
 } from "reactflow";
 import "reactflow/dist/style.css";
 import { Button } from "@/components/ui/button";
