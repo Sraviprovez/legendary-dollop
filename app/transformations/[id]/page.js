@@ -114,6 +114,7 @@ function TransformationCanvas() {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
+  const [isPipelineRunning, setIsPipelineRunning] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [showAIPanel, setShowAIPanel] = useState(false);
 
