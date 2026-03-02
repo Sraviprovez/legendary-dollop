@@ -201,7 +201,7 @@ function NewTransformationCanvas() {
       toast.error('Add at least one node to run pipeline');
       return;
     }
-    setIsRunning(true);
+    setIsPipelineRunning(true);
     toast.info('Pipeline execution started...');
     
     setTimeout(() => {
@@ -213,7 +213,7 @@ function NewTransformationCanvas() {
     }, 2000);
     
     setTimeout(() => {
-      setIsRunning(false);
+      setIsPipelineRunning(false);
       toast.success('✅ Pipeline completed successfully!', {
         description: 'Data loaded to target destination',
         duration: 5000,
