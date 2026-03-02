@@ -29,9 +29,23 @@ import { AISuggestionPanel } from "@/components/ai/AISuggestionPanel";
 
 const nodeTypes = {
   source: ({ data, selected }) => (
-    <div className={`px-4 py-3 shadow-lg rounded-lg bg-gradient-to-r from-green-600 to-green-500 text-white node-source min-w-[180px] ${
+    <div className={`px-4 py-3 shadow-lg rounded-lg bg-gradient-to-r from-green-600 to-green-500 text-white node-source min-w-[180px] relative ${
       selected ? 'ring-2 ring-yellow-400 ring-offset-2' : ''
     }`}>
+      {/* Handle for OUTGOING connections */}
+      <Handle
+        type="source"
+        position={Position.Right}
+        className="!bg-white !border-2 !border-green-700 !w-4 !h-4"
+      />
+      
+      {/* Handle for INCOMING connections */}
+      <Handle
+        type="target"
+        position={Position.Left}
+        className="!bg-white !border-2 !border-green-700 !w-4 !h-4"
+      />
+      
       <div className="font-bold text-base flex items-center justify-between">
         <span>{data.label}</span>
         <span className="text-xs bg-green-700 px-2 py-0.5 rounded-full">SOURCE</span>
@@ -43,9 +57,23 @@ const nodeTypes = {
     </div>
   ),
   transform: ({ data, selected }) => (
-    <div className={`px-4 py-3 shadow-lg rounded-lg bg-gradient-to-r from-blue-600 to-blue-500 text-white node-transform min-w-[180px] ${
+    <div className={`px-4 py-3 shadow-lg rounded-lg bg-gradient-to-r from-blue-600 to-blue-500 text-white node-transform min-w-[180px] relative ${
       selected ? 'ring-2 ring-yellow-400 ring-offset-2' : ''
     }`}>
+      {/* Handle for INCOMING connections */}
+      <Handle
+        type="target"
+        position={Position.Left}
+        className="!bg-white !border-2 !border-blue-700 !w-4 !h-4"
+      />
+      
+      {/* Handle for OUTGOING connections */}
+      <Handle
+        type="source"
+        position={Position.Right}
+        className="!bg-white !border-2 !border-blue-700 !w-4 !h-4"
+      />
+      
       <div className="font-bold text-base flex items-center justify-between">
         <span>{data.label}</span>
         <span className="text-xs bg-blue-700 px-2 py-0.5 rounded-full">TRANSFORM</span>
@@ -57,9 +85,16 @@ const nodeTypes = {
     </div>
   ),
   target: ({ data, selected }) => (
-    <div className={`px-4 py-3 shadow-lg rounded-lg bg-gradient-to-r from-purple-600 to-purple-500 text-white node-target min-w-[180px] ${
+    <div className={`px-4 py-3 shadow-lg rounded-lg bg-gradient-to-r from-purple-600 to-purple-500 text-white node-target min-w-[180px] relative ${
       selected ? 'ring-2 ring-yellow-400 ring-offset-2' : ''
     }`}>
+      {/* Handle for INCOMING connections */}
+      <Handle
+        type="target"
+        position={Position.Left}
+        className="!bg-white !border-2 !border-purple-700 !w-4 !h-4"
+      />
+      
       <div className="font-bold text-base flex items-center justify-between">
         <span>{data.label}</span>
         <span className="text-xs bg-purple-700 px-2 py-0.5 rounded-full">TARGET</span>
