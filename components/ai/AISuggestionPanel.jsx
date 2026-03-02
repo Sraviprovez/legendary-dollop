@@ -6,36 +6,103 @@ import { Button } from "@/components/ui/button";
 import { Sparkles, X, Zap, Database, GitBranch, Target, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-const mockAISuggestions = {
-  joins: [
-    { left: "sales.customer_id", right: "customers.id", confidence: 0.95 },
-    { left: "orders.product_id", right: "products.sku", confidence: 0.87 },
-  ],
-  transformations: [
-    { name: "Aggregate by country", type: "groupBy", confidence: 0.92 },
-    { name: "Filter last 30 days", type: "filter", confidence: 0.88 },
-    { name: "Calculate average order value", type: "aggregate", confidence: 0.91 },
-  ],
-  targets: [
-    { name: "Snowflake", type: "snowflake", confidence: 0.96 },
-    { name: "Aurora", type: "aurora", confidence: 0.89 },
-  ]
-};
-
-export function AISuggestionPanel({ onClose, onApplySuggestion, nodes = [] }) {
+export function AISuggestionPanel({ onClose, onApplySuggestion, nodes = [], edges = [] }) {
   const [loading, setLoading] = useState(false);
-  const [suggestions, setSuggestions] = useState(mockAISuggestions);
+  const [suggestions, setSuggestions] = useState({
+    joins: [],
+    transformations: [],
+    targets: []
+  });
   const [activeTab, setActiveTab] = useState('joins');
 
   const analyzePipeline = async () => {
     setLoading(true);
-    toast.info('Analyzing your pipeline with AI...');
     
-    setTimeout(() => {
-      setSuggestions(mockAISuggestions);
+    try {
+      // Get current nodes and edges from props
+      const currentNodes = nodes || [];
+      const currentEdges = edges || [];
+      
+      if (currentNodes.length === 0) {
+        toast.warning('Add some nodes to the canvas first', {
+          description: 'Drag nodes from the palette to begin'
+        });
+        setLoading(false);
+        return;
+      }
+
+      console.log('Analyzing pipeline with:', { 
+        nodes: currentNodes.length, 
+        edges: currentEdges.length 
+      });
+      
+      toast.info('Analyzing your pipeline with AI...', {
+        description: `Processing ${currentNodes.length} nodes`
+      });
+
+      const response = await fetch('/api/ai/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          nodes: currentNodes, 
+          edges: currentEdges 
+        })
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to get suggestions');
+      }
+
+      setSuggestions(data);
+      
+      // Show success with stats
+      const joinCount = data.joins?.length || 0;
+      const transformCount = data.transformations?.length || 0;
+      const targetCount = data.targets?.length || 0;
+      
+      if (data.warning) {
+        toast.warning('Using fallback suggestions', {
+          description: data.warning,
+          duration: 4000,
+        });
+      } else {
+        toast.success('AI analysis complete!', {
+          description: `Found ${joinCount} joins, ${transformCount} transforms, ${targetCount} targets`,
+          duration: 4000,
+        });
+      }
+      
+    } catch (error) {
+      console.error('AI analysis failed:', error);
+      toast.error('AI analysis failed. Using fallback suggestions.', {
+        description: error.message,
+        duration: 5000,
+      });
+      
+      // Enhanced fallback suggestions
+      setSuggestions({
+        joins: [
+          { left: "sales.customer_id", right: "customers.id", confidence: 0.95, reasoning: "Link sales to customer details" },
+          { left: "orders.product_id", right: "products.sku", confidence: 0.87, reasoning: "Connect orders to product catalog" },
+          { left: "inventory.product_id", right: "products.id", confidence: 0.82, reasoning: "Inventory to product master" }
+        ],
+        transformations: [
+          { name: "Aggregate sales by country", type: "groupBy", confidence: 0.92, description: "Sum sales per country for regional analysis" },
+          { name: "Filter last 30 days data", type: "filter", confidence: 0.88, description: "Focus on recent transactions" },
+          { name: "Calculate average order value", type: "aggregate", confidence: 0.91, description: "AOV by customer segment" },
+          { name: "Join sales with customers", type: "join", confidence: 0.94, description: "Enrich sales with customer attributes" }
+        ],
+        targets: [
+          { name: "Snowflake", type: "snowflake", confidence: 0.96, reason: "Best for large-scale analytics and reporting" },
+          { name: "Aurora PostgreSQL", type: "aurora", confidence: 0.89, reason: "Ideal for operational workloads and low latency" },
+          { name: "Redshift", type: "redshift", confidence: 0.78, reason: "Good for AWS-integrated data warehousing" }
+        ]
+      });
+    } finally {
       setLoading(false);
-      toast.success('AI analysis complete!');
-    }, 1500);
+    }
   };
 
   const applySuggestion = (suggestion) => {
@@ -105,49 +172,70 @@ export function AISuggestionPanel({ onClose, onApplySuggestion, nodes = [] }) {
         </div>
 
         <div className="space-y-2 max-h-96 overflow-y-auto">
-          {activeTab === 'joins' && suggestions.joins.map((join, idx) => (
+          {activeTab === 'joins' && (suggestions.joins?.length > 0 ? suggestions.joins.map((join, idx) => (
             <Card key={idx} className="p-3 hover:bg-muted/50 cursor-pointer transition-colors"
                   onClick={() => applySuggestion(join)}>
-              <div className="flex justify-between items-center">
-                <div>
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
                   <p className="text-sm font-medium">{join.left}</p>
                   <p className="text-xs text-muted-foreground">→ {join.right}</p>
+                  {join.reasoning && (
+                    <p className="text-xs text-muted-foreground mt-1">{join.reasoning}</p>
+                  )}
                 </div>
-                <div className="text-xs bg-green-500/10 text-green-600 px-2 py-1 rounded">
+                <div className="text-xs bg-green-500/10 text-green-600 px-2 py-1 rounded ml-2">
                   {Math.round(join.confidence * 100)}%
                 </div>
               </div>
             </Card>
+          )) : (
+            <div className="text-center text-muted-foreground text-sm py-4">
+              Click "Analyze Pipeline" to get suggestions
+            </div>
           ))}
 
-          {activeTab === 'transforms' && suggestions.transformations.map((trans, idx) => (
+          {activeTab === 'transforms' && (suggestions.transformations?.length > 0 ? suggestions.transformations.map((trans, idx) => (
             <Card key={idx} className="p-3 hover:bg-muted/50 cursor-pointer transition-colors"
                   onClick={() => applySuggestion(trans)}>
-              <div className="flex justify-between items-center">
-                <div>
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
                   <p className="text-sm font-medium">{trans.name}</p>
                   <p className="text-xs text-muted-foreground capitalize">{trans.type}</p>
+                  {trans.description && (
+                    <p className="text-xs text-muted-foreground mt-1">{trans.description}</p>
+                  )}
                 </div>
-                <div className="text-xs bg-blue-500/10 text-blue-600 px-2 py-1 rounded">
+                <div className="text-xs bg-blue-500/10 text-blue-600 px-2 py-1 rounded ml-2">
                   {Math.round(trans.confidence * 100)}%
                 </div>
               </div>
             </Card>
+          )) : (
+            <div className="text-center text-muted-foreground text-sm py-4">
+              Click "Analyze Pipeline" to get suggestions
+            </div>
           ))}
 
-          {activeTab === 'targets' && suggestions.targets.map((target, idx) => (
+          {activeTab === 'targets' && (suggestions.targets?.length > 0 ? suggestions.targets.map((target, idx) => (
             <Card key={idx} className="p-3 hover:bg-muted/50 cursor-pointer transition-colors"
                   onClick={() => applySuggestion(target)}>
-              <div className="flex justify-between items-center">
-                <div>
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
                   <p className="text-sm font-medium">{target.name}</p>
                   <p className="text-xs text-muted-foreground capitalize">{target.type}</p>
+                  {target.reason && (
+                    <p className="text-xs text-muted-foreground mt-1">{target.reason}</p>
+                  )}
                 </div>
-                <div className="text-xs bg-purple-500/10 text-purple-600 px-2 py-1 rounded">
+                <div className="text-xs bg-purple-500/10 text-purple-600 px-2 py-1 rounded ml-2">
                   {Math.round(target.confidence * 100)}%
                 </div>
               </div>
             </Card>
+          )) : (
+            <div className="text-center text-muted-foreground text-sm py-4">
+              Click "Analyze Pipeline" to get suggestions
+            </div>
           ))}
         </div>
 
@@ -160,6 +248,12 @@ export function AISuggestionPanel({ onClose, onApplySuggestion, nodes = [] }) {
             <li>Target destinations</li>
           </ul>
           <p className="mt-2 text-primary">Click any suggestion to apply</p>
+        </div>
+
+        <div className="mt-2 p-2 bg-yellow-500/10 rounded text-xs">
+          <p className="text-yellow-700 dark:text-yellow-400">
+            💡 <strong>Tip:</strong> Add API key to .env.local for AI-powered suggestions
+          </p>
         </div>
       </div>
     </Card>

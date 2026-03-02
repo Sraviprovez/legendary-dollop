@@ -332,6 +332,7 @@ function TransformationCanvas() {
           onClose={() => setShowAIPanel(false)}
           onApplySuggestion={handleApplySuggestion}
           nodes={nodes}
+          edges={edges}
         />
       )}
     </div>
