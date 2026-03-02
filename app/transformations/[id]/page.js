@@ -227,7 +227,7 @@ function TransformationCanvas() {
   }, [setNodes, setEdges]);
 
   const handleRunPipeline = () => {
-    setIsRunning(true);
+    setIsPipelineRunning(true);
     toast.info('Pipeline execution started...');
     
     setTimeout(() => {
@@ -239,7 +239,7 @@ function TransformationCanvas() {
     }, 2000);
     
     setTimeout(() => {
-      setIsRunning(false);
+      setIsPipelineRunning(false);
       toast.success('✅ Pipeline completed successfully!', {
         description: 'Data loaded to target destination',
         duration: 5000,
@@ -307,11 +307,11 @@ function TransformationCanvas() {
             <Save className="mr-2 h-4 w-4" />
             Save
           </Button>
-          <Button onClick={handleRunPipeline} disabled={isRunning}>
-            {isRunning ? (
+          <Button onClick={handleRunPipeline} disabled={isPipelineRunning}>
+            {isPipelineRunning ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Running...
+                Running (3s)...
               </>
             ) : (
               <>
@@ -354,7 +354,7 @@ function TransformationCanvas() {
             snapGrid={[15, 15]}
             defaultEdgeOptions={{
               type: 'smoothstep',
-              animated: true,
+              animated: isPipelineRunning,
               style: { stroke: '#888', strokeWidth: 2 },
               markerEnd: { type: MarkerType.ArrowClosed, color: '#888' },
             }}
