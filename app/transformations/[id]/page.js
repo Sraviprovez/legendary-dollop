@@ -307,11 +307,11 @@ function TransformationCanvas() {
             <Save className="mr-2 h-4 w-4" />
             Save
           </Button>
-          <Button onClick={handleRunPipeline} disabled={isRunning}>
-            {isRunning ? (
+          <Button onClick={handleRunPipeline} disabled={isPipelineRunning}>
+            {isPipelineRunning ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Running...
+                Running (3s)...
               </>
             ) : (
               <>
