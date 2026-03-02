@@ -146,21 +146,37 @@ function TransformationCanvas() {
 
   const onConnect = useCallback(
     (params) => {
+      // Prevent self-connection
+      if (params.source === params.target) {
+        toast.error('Cannot connect node to itself');
+        return;
+      }
+      
+      // Check if connection already exists
+      const exists = edges.some(e => 
+        e.source === params.source && e.target === params.target
+      );
+      
+      if (exists) {
+        toast.error('Connection already exists');
+        return;
+      }
+      
       const edgeWithArrows = {
         ...params,
         id: `edge-${uuidv4()}`,
         markerEnd: {
           type: MarkerType.ArrowClosed,
-          color: '#888',
+          color: '#3b82f6',
         },
-        style: { stroke: '#888', strokeWidth: 2 },
+        style: { stroke: '#3b82f6', strokeWidth: 3 },
         animated: true,
         type: 'smoothstep',
       };
       setEdges((eds) => addEdge(edgeWithArrows, eds));
       toast.success('Connection created!');
     },
-    [setEdges]
+    [setEdges, edges]
   );
 
   const onDragOver = useCallback((event) => {
