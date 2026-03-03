@@ -18,7 +18,7 @@ import ReactFlow, {
 import "reactflow/dist/style.css";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, Save, Play, Sparkles, Loader2, Trash2, Zap } from "lucide-react";
+import { ArrowLeft, Save, Play, Sparkles, Loader2, Trash2, Zap, Check } from "lucide-react";
 import Link from "next/link";
 import { mockTransformations } from "@/lib/mock-data/transformations";
 import { NodePalette } from "@/components/canvas/NodePalette";

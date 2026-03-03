@@ -92,11 +92,11 @@ export function SampleDataPreview({ open, onOpenChange, source }) {
           <div className="border rounded-lg p-4">
             <h4 className="font-medium mb-2">Recent Files</h4>
             <ul className="space-y-1">
-              {source.metadata.sampling.recentFiles.map((file, idx) => (
+              {source.metadata?.sampling?.recentFiles?.map((file, idx) => (
                 <li key={idx} className="text-sm font-mono bg-secondary p-2 rounded">
                   {file}
                 </li>
-              ))}
+              )) || <li className="text-sm text-muted-foreground">No files available</li>}
             </ul>
           </div>
         </div>
