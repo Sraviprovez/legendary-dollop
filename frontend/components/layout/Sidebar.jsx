@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Brain, Database, GitBranch, Home, FileJson, GitMerge, Send } from "lucide-react";
+import { Brain, Database, GitBranch, Home, FileJson, GitMerge, Send, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 import Image from "next/image";
 import Link from "next/link";
@@ -33,6 +33,12 @@ const routes = [
     icon: FileJson,
     href: "/samples",
     color: "text-purple-500"
+  },
+  {
+    label: "Data Catalog",
+    icon: BookOpen,
+    href: "/catalog",
+    color: "text-amber-500"
   },
   {
     label: "Data Lineage",
@@ -73,9 +79,8 @@ export function Sidebar() {
       });
 
       const data = await res.json();
-      const source = data.source === 'openrouter' ? '🤖 AI' : '💡 Suggestion';
 
-      toast.success(`Kaavya (${source}):`, {
+      toast.success(data.source === 'openrouter' ? "Kaavya (🤖 AI):" : "Kaavya:", {
         description: data.response,
         duration: 8000,
       });

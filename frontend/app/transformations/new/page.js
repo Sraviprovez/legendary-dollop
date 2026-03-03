@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import ReactFlow, {
   Background,
   Controls,
@@ -18,11 +18,11 @@ import ReactFlow, {
 import "reactflow/dist/style.css";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, Save, Play, Sparkles, Loader2, Trash2, Zap, Check } from "lucide-react";
+import { ArrowLeft, Save, Play, Sparkles, Loader2, Trash2, Zap, Check, Cpu, Box, Rocket, Terminal } from "lucide-react";
 import Link from "next/link";
-import { mockTransformations } from "@/lib/mock-data/transformations";
 import { NodePalette } from "@/components/canvas/NodePalette";
 import { PromptTooltip } from "@/components/shared/PromptTooltip";
+import { EngineSelector } from "@/components/transformations/EngineSelector";
 import { toast } from "sonner";
 import { v4 as uuidv4 } from 'uuid';
 import { AISuggestionPanel } from "@/components/ai/AISuggestionPanel";
@@ -90,9 +90,13 @@ const nodeTypes = {
         <span>{data.label}</span>
         <span className="text-xs bg-blue-700 px-2 py-0.5 rounded-full">TRANSFORM</span>
       </div>
-      <div className="text-xs opacity-90 mt-2">
-        <Zap className="inline h-3 w-3 mr-1" />
-        {data.type?.toUpperCase() || 'PYSPARK'}
+      <div className="text-xs opacity-90 mt-2 flex items-center gap-1">
+        {data.engineId === 'pyspark' && <Terminal className="h-3 w-3" />}
+        {data.engineId === 'glue' && <Box className="h-3 w-3" />}
+        {data.engineId === 'databricks' && <Rocket className="h-3 w-3" />}
+        {data.engineId === 'dbt' && <Zap className="h-3 w-3" />}
+        {!data.engineId && <Cpu className="h-3 w-3" />}
+        {data.engineName || data.type?.toUpperCase() || 'PYSPARK'}
       </div>
     </div>
   ),
@@ -117,23 +121,51 @@ const nodeTypes = {
   ),
 };
 
-function TransformationCanvas() {
-  const params = useParams();
-  const transformation = mockTransformations.find(t => t.id === params.id);
+function NewTransformationCanvas() {
+  const router = useRouter();
   const reactFlowWrapper = useRef(null);
 
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [reactFlowInstance, setReactFlowInstance] = useState(null);
   const [isPipelineRunning, setIsPipelineRunning] = useState(false);
-  const [isRunning, setIsRunning] = useState(false);
   const [showAIPanel, setShowAIPanel] = useState(false);
+  const [engineSelectorOpen, setEngineSelectorOpen] = useState(false);
+  const [editingNodeId, setEditingNodeId] = useState(null);
+
+  // Check for cherry-picked tables from catalog
+  useEffect(() => {
+    const pendingTables = localStorage.getItem('pending_tables');
+    if (pendingTables && reactFlowInstance) {
+      try {
+        const tables = JSON.parse(pendingTables);
+        const newNodes = tables.map((table, idx) => ({
+          id: `source-${uuidv4()}`,
+          type: 'source',
+          position: { x: 100, y: 100 + (idx * 150) },
+          data: {
+            label: table.name,
+            type: table.sourceType || 'database',
+            sourceType: table.sourceType,
+            status: 'active'
+          },
+        }));
+        setNodes((nds) => nds.concat(newNodes));
+        localStorage.removeItem('pending_tables');
+        toast.success(`Added ${tables.length} table(s) to canvas`);
+      } catch (e) {
+        console.error("Failed to parse pending tables", e);
+      }
+    }
+  }, [reactFlowInstance, setNodes]);
 
   // Listen for Kaavya thinking events and jiggle nodes
   useEffect(() => {
     const handleKaavyaThinking = () => {
       if (nodes.length === 0) return;
+      // Save original positions
       const originals = nodes.map(n => ({ id: n.id, x: n.position.x, y: n.position.y }));
+      // Nudge nodes slightly
       setNodes(nds => nds.map(n => ({
         ...n,
         position: {
@@ -141,12 +173,14 @@ function TransformationCanvas() {
           y: n.position.y + (Math.random() - 0.5) * 20,
         }
       })));
+      // Return to original after a moment
       setTimeout(() => {
         setNodes(nds => nds.map(n => {
           const orig = originals.find(o => o.id === n.id);
           return orig ? { ...n, position: { x: orig.x, y: orig.y } } : n;
         }));
       }, 600);
+      // Second nudge
       setTimeout(() => {
         setNodes(nds => nds.map(n => ({
           ...n,
@@ -156,6 +190,7 @@ function TransformationCanvas() {
           }
         })));
       }, 1200);
+      // Final return
       setTimeout(() => {
         setNodes(nds => nds.map(n => {
           const orig = originals.find(o => o.id === n.id);
@@ -166,33 +201,6 @@ function TransformationCanvas() {
     window.addEventListener('kaavya-thinking', handleKaavyaThinking);
     return () => window.removeEventListener('kaavya-thinking', handleKaavyaThinking);
   }, [nodes, setNodes]);
-
-  useEffect(() => {
-    if (transformation) {
-      const updatedNodes = transformation.nodes.map(node => ({
-        ...node,
-        id: node.id || `${node.type}-${uuidv4()}`,
-        data: {
-          ...node.data,
-          label: node.data?.label || `${node.type} node`,
-        }
-      }));
-      setNodes(updatedNodes);
-
-      const updatedEdges = transformation.edges.map(edge => ({
-        ...edge,
-        id: edge.id || `edge-${uuidv4()}`,
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          color: '#888',
-        },
-        style: { stroke: '#888', strokeWidth: 2 },
-        animated: true,
-        type: 'smoothstep',
-      }));
-      setEdges(updatedEdges);
-    }
-  }, [transformation, setNodes, setEdges]);
 
   const onConnect = useCallback(
     (params) => {
@@ -265,6 +273,35 @@ function TransformationCanvas() {
     [setNodes, reactFlowInstance]
   );
 
+  const onNodeDoubleClick = useCallback((event, node) => {
+    if (node.type === 'transform') {
+      setEditingNodeId(node.id);
+      setEngineSelectorOpen(true);
+    }
+  }, []);
+
+  const onEngineSelect = useCallback(({ engineId, engineName, config }) => {
+    setNodes((nds) =>
+      nds.map((node) => {
+        if (node.id === editingNodeId) {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              engineId,
+              engineName,
+              engineConfig: config,
+              // Update label if it was default
+              label: node.data.label.includes('New Transform') ? `${engineName} Transform` : node.data.label
+            },
+          };
+        }
+        return node;
+      })
+    );
+    toast.success(`Node engine updated to ${engineName}`);
+  }, [editingNodeId, setNodes]);
+
   const onInit = useCallback((instance) => {
     setReactFlowInstance(instance);
   }, []);
@@ -331,7 +368,12 @@ function TransformationCanvas() {
   };
 
   const handleSave = () => {
-    toast.success('Pipeline saved successfully');
+    if (nodes.length === 0) {
+      toast.error('Add at least one node to save');
+      return;
+    }
+    toast.success('New pipeline saved successfully');
+    setTimeout(() => router.push('/transformations'), 1000);
   };
 
   const handleAIAssist = () => {
@@ -411,10 +453,6 @@ function TransformationCanvas() {
     setShowAIPanel(false);
   };
 
-  if (!transformation) {
-    return <div className="flex items-center justify-center h-full">Transformation not found</div>;
-  }
-
   return (
     <div className="space-y-4 p-4">
       <div className="flex items-center justify-between">
@@ -425,7 +463,7 @@ function TransformationCanvas() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl font-bold">{transformation?.name}</h1>
+            <h1 className="text-2xl font-bold">New Transformation</h1>
             <p className="text-muted-foreground">Drag nodes from palette ➔ Connect with arrows ➔ Run pipeline</p>
           </div>
         </div>
@@ -444,7 +482,7 @@ function TransformationCanvas() {
             {isPipelineRunning ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Running (3s)...
+                Running...
               </>
             ) : (
               <>
@@ -481,13 +519,14 @@ function TransformationCanvas() {
             onDragOver={onDragOver}
             onDrop={onDrop}
             onInit={onInit}
+            onNodeDoubleClick={onNodeDoubleClick}
             nodeTypes={nodeTypes}
             fitView
             snapToGrid={true}
             snapGrid={[15, 15]}
             defaultEdgeOptions={{
               type: 'smoothstep',
-              animated: isPipelineRunning,
+              animated: true,
               style: { stroke: '#888', strokeWidth: 2 },
               markerEnd: { type: MarkerType.ArrowClosed, color: '#888' },
             }}
@@ -522,14 +561,24 @@ function TransformationCanvas() {
           edges={edges}
         />
       )}
+
+      {editingNodeId && (
+        <EngineSelector
+          open={engineSelectorOpen}
+          onOpenChange={setEngineSelectorOpen}
+          onSelect={onEngineSelect}
+          currentEngineId={nodes.find(n => n.id === editingNodeId)?.data?.engineId}
+          currentConfig={nodes.find(n => n.id === editingNodeId)?.data?.engineConfig}
+        />
+      )}
     </div>
   );
 }
 
-export default function TransformationPage() {
+export default function NewTransformationPage() {
   return (
     <ReactFlowProvider>
-      <TransformationCanvas />
+      <NewTransformationCanvas />
     </ReactFlowProvider>
   );
 }
