@@ -42,14 +42,21 @@ async def create_source(
         raise HTTPException(status_code=403, detail="Insufficient permissions to create sources")
 
     # 1. Create in Airbyte
-    # For now, we assume a default Airbyte workspace exists or we use one from config
-    # This is a bit complex in a real setup, usually we'd link SynKrasis Workspace -> Airbyte Workspace
     try:
-        # Mocking Airbyte Workspace ID for now, in reality we'd look this up
-        airbyte_workspace_id = str(uuid.uuid4()) 
-        # airbyte_data = await airbyte.create_source(name, source_definition_id, airbyte_workspace_id, connection_configuration)
-        # airbyte_id = airbyte_data["sourceId"]
-        airbyte_id = f"mock-{uuid.uuid4()}" # MOCK for now
+        # Fetch the first available workspace for now
+        airbyte_workspaces = await airbyte.list_workspaces()
+        if not airbyte_workspaces:
+            raise HTTPException(status_code=500, detail="No Airbyte workspaces found")
+        
+        airbyte_workspace_id = airbyte_workspaces[0]["workspaceId"]
+        
+        airbyte_data = await airbyte.create_source(
+            name=name, 
+            source_definition_id=source_definition_id, 
+            workspace_id=airbyte_workspace_id, 
+            connection_configuration=connection_configuration
+        )
+        airbyte_id = airbyte_data["sourceId"]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Airbyte creation failed: {str(e)}")
 
@@ -57,14 +64,22 @@ async def create_source(
     new_source = Source(
         name=name,
         workspace_id=workspace_id,
-        type="TODO", # Should come from definition_id mapping
-        connection_details=connection_configuration, # Should be encrypted!
+        type=source_definition_id,
+        connection_details=connection_configuration,
         created_by=current_user.id,
         airbyte_source_id=airbyte_id
     )
     db.add(new_source)
     db.commit()
     db.refresh(new_source)
+    
+    # 3. Auto-discover schema after creation
+    try:
+        schema_data = await airbyte.discover_source_schema(airbyte_id)
+        new_source.schema_cache = schema_data
+        db.commit()
+    except:
+        pass # Non-blocking discovery failure
     
     return {"success": True, "data": new_source}
 
@@ -78,8 +93,8 @@ async def test_connection(
     if not source:
         raise HTTPException(status_code=404, detail="Source not found")
         
-    # In reality, call airbyte.check_source_connection(source.airbyte_source_id)
-    return {"success": True, "status": "succeeded", "message": "Connection test successful (MOCKED)"}
+    result = await airbyte.check_source_connection(source.airbyte_source_id)
+    return {"success": True, "status": result.get("status"), "message": result.get("message")}
 
 @router.post("/{source_id}/discover-schema")
 async def discover_schema(
@@ -91,10 +106,8 @@ async def discover_schema(
     if not source:
         raise HTTPException(status_code=404, detail="Source not found")
         
-    # In reality, call airbyte.discover_source_schema(source.airbyte_source_id)
-    # Then update source.schema_cache
-    mock_schema = {"tables": [{"name": "users", "columns": ["id", "email"]}]}
-    source.schema_cache = mock_schema
+    schema_data = await airbyte.discover_source_schema(source.airbyte_source_id)
+    source.schema_cache = schema_data
     db.commit()
     
-    return {"success": True, "data": mock_schema}
+    return {"success": True, "data": schema_data}

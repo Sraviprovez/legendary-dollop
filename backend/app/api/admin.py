@@ -43,8 +43,52 @@ async def create_user(
     )
     db.add(new_user)
     db.commit()
-    db.refresh(new_user)
-    return {"success": True, "data": new_user}
+@router.put("/users/{user_id}")
+async def update_user(
+    user_id: uuid.UUID,
+    user_data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if "email" in user_data:
+        user.email = user_data["email"]
+    if "first_name" in user_data:
+        user.first_name = user_data["first_name"]
+    if "last_name" in user_data:
+        user.last_name = user_data["last_name"]
+    if "role" in user_data:
+        user.role = user_data["role"]
+    if "password" in user_data and user_data["password"]:
+        user.password_hash = get_password_hash(user_data["password"])
+    if "is_active" in user_data:
+        user.is_active = user_data["is_active"]
+        
+    db.commit()
+    return {"success": True, "data": user}
+
+@router.delete("/users/{user_id}")
+async def delete_user(
+    user_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    db.delete(user)
+    db.commit()
+    return {"success": True, "message": "User deleted successfully"}
 
 @router.get("/workspaces")
 async def list_all_workspaces(

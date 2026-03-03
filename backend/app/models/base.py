@@ -70,7 +70,7 @@ class Pipeline(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     config = Column(JSON, nullable=False)  # nodes and edges
-    version = Column(Column(String), default="1")
+    version = Column(String, default="1")
     is_private = Column(Boolean, default=False)
     visibility = Column(Enum(PipelineVisibility), default=PipelineVisibility.WORKSPACE)
 

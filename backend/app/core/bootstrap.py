@@ -17,14 +17,16 @@ def bootstrap_system():
         print("Starting system bootstrap...")
         
         admin_email = os.getenv("ADMIN_EMAIL", "admin@synkrasis.ai")
-        admin_password = os.getenv("ADMIN_PASSWORD", "changeme123")
+        admin_password = os.getenv("ADMIN_PASSWORD", "Admin123!")
+        admin_first_name = os.getenv("ADMIN_FIRST_NAME", "System")
+        admin_last_name = os.getenv("ADMIN_LAST_NAME", "Administrator")
         
         # 1. Create the first admin
         new_user = User(
             email=admin_email,
             password_hash=get_password_hash(admin_password),
-            first_name="Admin",
-            last_name="System",
+            first_name=admin_first_name,
+            last_name=admin_last_name,
             role=UserRole.ADMIN,
             is_active=True
         )

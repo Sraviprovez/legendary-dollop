@@ -104,3 +104,25 @@ async def run_pipeline(
             "message": f"Pipeline {pipeline.name} submitted for execution on {engine} (MOCKED)"
         }
     }
+
+@router.put("/{pipeline_id}/permissions")
+async def update_pipeline_permissions(
+    pipeline_id: uuid.UUID,
+    permission_data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    pipeline = db.query(Pipeline).filter(Pipeline.id == pipeline_id).first()
+    if not pipeline:
+        raise HTTPException(status_code=404, detail="Pipeline not found")
+        
+    if pipeline.created_by != current_user.id and current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Permission denied")
+
+    if "is_private" in permission_data:
+        pipeline.is_private = permission_data["is_private"]
+    if "visibility" in permission_data:
+        pipeline.visibility = permission_data["visibility"]
+        
+    db.commit()
+    return {"success": True, "message": "Permissions updated successfully"}

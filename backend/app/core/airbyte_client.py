@@ -14,7 +14,8 @@ class AirbyteClient:
             return response.json()
 
     async def list_workspaces(self) -> List[Dict]:
-        return await self._post("/workspaces/list")
+        data = await self._post("/workspaces/list", {})
+        return data.get("workspaces", [])
 
     async def list_source_definitions(self, workspace_id: str) -> List[Dict]:
         data = await self._post("/source_definitions/list_for_workspace", {"workspaceId": workspace_id})
@@ -31,6 +32,29 @@ class AirbyteClient:
             "workspaceId": workspace_id,
             "connectionConfiguration": connection_configuration
         })
+
+    async def create_destination(self, name: str, destination_definition_id: str, workspace_id: str, connection_configuration: Dict) -> Dict:
+        return await self._post("/destinations/create", {
+            "name": name,
+            "destinationDefinitionId": destination_definition_id,
+            "workspaceId": workspace_id,
+            "connectionConfiguration": connection_configuration
+        })
+
+    async def create_connection(self, source_id: str, destination_id: str, namespace_definition: str = "source", prefix: str = "") -> Dict:
+        return await self._post("/connections/create", {
+            "sourceId": source_id,
+            "destinationId": destination_id,
+            "namespaceDefinition": namespace_definition,
+            "prefix": prefix,
+            "status": "active"
+        })
+
+    async def sync_connection(self, connection_id: str) -> Dict:
+        return await self._post("/connections/sync", {"connectionId": connection_id})
+
+    async def get_job_status(self, job_id: int) -> Dict:
+        return await self._post("/jobs/get", {"id": job_id})
 
     async def delete_source(self, source_id: str):
         return await self._post("/sources/delete", {"sourceId": source_id})

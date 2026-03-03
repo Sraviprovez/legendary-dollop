@@ -50,6 +50,28 @@ async def create_workspace(
         role_in_workspace=WorkspaceMemberRole.ADMIN
     )
     db.add(membership)
-    db.commit()
+@router.post("/{workspace_id}/members")
+async def add_workspace_member(
+    workspace_id: uuid.UUID,
+    member_data: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # Check if current user is admin of workspace
+    admin_check = db.query(WorkspaceMember).filter(
+        WorkspaceMember.workspace_id == workspace_id,
+        WorkspaceMember.user_id == current_user.id,
+        WorkspaceMember.role_in_workspace == WorkspaceMemberRole.ADMIN
+    ).first()
     
-    return {"success": True, "data": new_workspace}
+    if not admin_check and current_user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=403, detail="Admin permissions required for this workspace")
+        
+    new_member = WorkspaceMember(
+        workspace_id=workspace_id,
+        user_id=member_data["user_id"],
+        role_in_workspace=member_data.get("role", WorkspaceMemberRole.VIEWER)
+    )
+    db.add(new_member)
+    db.commit()
+    return {"success": True, "message": "Member added successfully"}
