@@ -1,18 +1,7 @@
 version: '3.8'
 
 services:
-  postgres:
-    image: postgres:15
-    environment:
-      POSTGRES_USER: synkrasis
-      POSTGRES_PASSWORD: synkrasis
-      POSTGRES_DB: synkrasis
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - synkrasis-network
+  # REMOVED local postgres service, using host PostgreSQL instead
 
   redis:
     image: redis:7
@@ -22,22 +11,24 @@ services:
       - synkrasis-network
 
   backend:
-    build: 
+    build:
       context: ../backend
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
     environment:
-      DATABASE_URL: postgresql://synkrasis:synkrasis@postgres:5432/synkrasis
-      REDIS_URL: redis://redis:6379
+      - DATABASE_URL=postgresql://sriravi:rootroot@host.docker.internal:5432/auton_meta
+      - REDIS_URL=redis://redis:6379
+      - DOCKER_ENV=true
     volumes:
       - ../backend:/app
       - /tmp/synkrasis:/tmp/synkrasis
     depends_on:
-      - postgres
       - redis
     networks:
       - synkrasis-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   frontend:
     build:
@@ -55,18 +46,6 @@ services:
       - backend
     networks:
       - synkrasis-network
-
-  livy:
-    image: apache/livy:0.8.0
-    ports:
-      - "8998:8998"
-    environment:
-      LIVY_SPARK_MASTER: local[*]
-    networks:
-      - synkrasis-network
-
-volumes:
-  postgres_data:
 
 networks:
   synkrasis-network:
