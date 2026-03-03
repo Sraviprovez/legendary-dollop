@@ -3,6 +3,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
+import { AuthProvider } from "@/components/auth/AuthProvider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -21,16 +22,18 @@ export default function RootLayout({ children }) {
           enableSystem={false}
           storageKey="synkrasis-theme"
         >
-          <TooltipProvider delayDuration={200}>
-            {children}
-            <Toaster 
-              position="top-right"
-              richColors 
-              closeButton
-              expand={true}
-              visibleToasts={3}
-            />
-          </TooltipProvider>
+          <AuthProvider>
+            <TooltipProvider delayDuration={200}>
+              {children}
+              <Toaster
+                position="top-right"
+                richColors
+                closeButton
+                expand={true}
+                visibleToasts={3}
+              />
+            </TooltipProvider>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

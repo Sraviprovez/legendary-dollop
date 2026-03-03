@@ -102,7 +102,7 @@ export const useSourceStore = create(
   persist(
     (set, get) => ({
       sources: initialSources,
-      
+
       addSource: (sourceData) => {
         const newSource = {
           id: uuidv4(),
@@ -112,43 +112,51 @@ export const useSourceStore = create(
           lastIngested: null,
           metadata: {
             ...sourceData.metadata,
-            sampling: sourceData.type === 'csv' 
+            sampling: sourceData.type === 'csv'
               ? {
-                  columns: ['sample_column_1', 'sample_column_2', 'sample_column_3'],
-                  sampleRows: [['sample1', 'sample2', 'sample3']]
-                }
+                columns: ['sample_column_1', 'sample_column_2', 'sample_column_3'],
+                sampleRows: [['sample1', 'sample2', 'sample3']]
+              }
               : {
-                  tables: {
-                    sample_table: {
-                      columns: ['id', 'name', 'value'],
-                      sampleRows: [[1, 'test', 'data']]
-                    }
+                tables: {
+                  sample_table: {
+                    columns: ['id', 'name', 'value'],
+                    sampleRows: [[1, 'test', 'data']]
                   }
                 }
+              }
           }
         };
-        
+
         set((state) => ({
           sources: [...state.sources, newSource]
         }));
-        
+
         return newSource;
       },
-      
+
       removeSource: (id) => {
         set((state) => ({
           sources: state.sources.filter(s => s.id !== id)
         }));
       },
-      
+
       updateSourceStatus: (id, status) => {
         set((state) => ({
-          sources: state.sources.map(s => 
+          sources: state.sources.map(s =>
             s.id === id ? { ...s, status } : s
           )
         }));
       },
-      
+
+      updateSource: (id, updates) => {
+        set((state) => ({
+          sources: state.sources.map(s =>
+            s.id === id ? { ...s, ...updates } : s
+          )
+        }));
+      },
+
       getSource: (id) => {
         return get().sources.find(s => s.id === id);
       }

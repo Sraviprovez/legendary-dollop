@@ -66,6 +66,12 @@ export function SourceCard({ source }) {
                   <Badge variant={source.status === "active" ? "default" : "secondary"}>
                     {source.status}
                   </Badge>
+                  {source.is_private && (
+                    <Badge variant="outline" className="ml-2 border-amber-500/50 text-amber-500">
+                      <Lock className="h-3 w-3 mr-1" />
+                      Private
+                    </Badge>
+                  )}
                 </CardDescription>
               </div>
             </div>
@@ -83,6 +89,13 @@ export function SourceCard({ source }) {
                 <DropdownMenuItem onClick={handleIngest}>
                   <Play className="mr-2 h-4 w-4" />
                   Ingest Now
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleTogglePrivacy}>
+                  {source.is_private ? (
+                    <><Unlock className="mr-2 h-4 w-4" /> Make Workspace Public</>
+                  ) : (
+                    <><Lock className="mr-2 h-4 w-4" /> Make Private</>
+                  )}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleDelete} className="text-red-600">
                   <Trash2 className="mr-2 h-4 w-4" />

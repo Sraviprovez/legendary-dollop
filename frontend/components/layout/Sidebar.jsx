@@ -7,50 +7,76 @@ import { Brain, Database, GitBranch, Home, FileJson, GitMerge, Send, BookOpen } 
 import { toast } from "sonner";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { Settings, ShieldCheck } from "lucide-react";
 
 const routes = [
   {
     label: "Dashboard",
     icon: Home,
     href: "/sources",
-    color: "text-sky-500"
+    color: "text-sky-500",
+    roles: ["admin", "data_engineer"]
   },
   {
     label: "Data Sources",
     icon: Database,
     href: "/sources/list",
-    color: "text-green-500"
+    color: "text-green-500",
+    roles: ["admin", "data_engineer", "devops"]
   },
   {
     label: "Transformations",
     icon: GitBranch,
     href: "/transformations",
-    color: "text-blue-500"
+    color: "text-blue-500",
+    roles: ["admin", "data_engineer", "developer"]
   },
   {
     label: "Samples",
     icon: FileJson,
     href: "/samples",
-    color: "text-purple-500"
+    color: "text-purple-500",
+    roles: ["admin", "data_engineer"]
   },
   {
     label: "Data Catalog",
     icon: BookOpen,
     href: "/catalog",
-    color: "text-amber-500"
+    color: "text-amber-500",
+    roles: ["admin", "data_engineer", "developer", "analyst"]
   },
   {
     label: "Data Lineage",
     icon: GitMerge,
     href: "/lineage",
-    color: "text-orange-500"
+    color: "text-orange-500",
+    roles: ["admin", "data_engineer", "analyst"]
+  },
+  {
+    label: "Admin",
+    icon: ShieldCheck,
+    href: "/admin/users",
+    color: "text-red-500",
+    roles: ["admin"]
+  },
+  {
+    label: "Settings",
+    icon: Settings,
+    href: "/settings",
+    color: "text-slate-500",
+    roles: ["admin", "devops"]
   }
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { user } = useAuth();
   const [aiInput, setAiInput] = useState("");
+
+  const filteredRoutes = routes.filter(route =>
+    !route.roles || (user && route.roles.includes(user.role))
+  );
 
   const [isThinking, setIsThinking] = useState(false);
 
@@ -111,7 +137,7 @@ export function Sidebar() {
           <h1 className="text-xl font-bold">SynKrasis.ai</h1>
         </Link>
         <div className="space-y-1">
-          {routes.map((route) => (
+          {filteredRoutes.map((route) => (
             <Button
               key={route.href}
               variant={pathname === route.href ? "secondary" : "ghost"}
