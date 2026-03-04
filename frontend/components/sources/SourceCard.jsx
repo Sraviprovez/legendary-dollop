@@ -3,7 +3,7 @@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Database, FileText, HardDrive, MoreVertical, Play, Eye, Trash2 } from "lucide-react";
+import { Database, FileText, HardDrive, MoreVertical, Play, Eye, Trash2, Lock, Unlock } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import {
   DropdownMenu,
@@ -46,6 +46,10 @@ export function SourceCard({ source }) {
     setTimeout(() => {
       toast.success(`Ingestion completed for ${source.name}`);
     }, 2000);
+  };
+
+  const handleTogglePrivacy = () => {
+    toast.info(`Privacy setting ${source.is_private ? 'disabled' : 'enabled'} for ${source.name}`);
   };
 
   return (
