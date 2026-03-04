@@ -123,8 +123,8 @@ async def get_table_columns(
     
     # Extract columns from metadata
     columns = []
-    if table.metadata and "columns" in table.metadata:
-        for col in table.metadata["columns"]:
+    if table.catalog_metadata and "columns" in table.catalog_metadata:
+        for col in table.catalog_metadata["columns"]:
             columns.append(ColumnInfo(
                 name=col.get("name", ""),
                 data_type=col.get("type", ""),

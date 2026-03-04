@@ -146,7 +146,7 @@ class CatalogEntry(Base):
     row_count = Column(String) # stored as string for large numbers
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    metadata = Column(JSON)
+    catalog_metadata = Column(JSON)
 
 class QualityRule(Base):
     __tablename__ = "quality_rules"
