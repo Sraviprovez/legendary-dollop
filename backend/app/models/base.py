@@ -107,3 +107,89 @@ class Transformation(Base):
     config = Column(JSON, nullable=False)
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
+
+class PipelineVersion(Base):
+    __tablename__ = "pipeline_versions"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    pipeline_id = Column(UUID(as_uuid=True), ForeignKey("pipelines.id"))
+    version = Column(String, nullable=False)
+    config = Column(JSON, nullable=False)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    description = Column(Text)
+
+class PipelineRun(Base):
+    __tablename__ = "pipeline_runs"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    pipeline_id = Column(UUID(as_uuid=True), ForeignKey("pipelines.id"))
+    status = Column(String, default="pending") # pending, running, success, failed, cancelled
+    started_at = Column(DateTime)
+    ended_at = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    error_message = Column(Text)
+    logs = Column(Text)
+    metrics = Column(JSON)
+
+class CatalogEntry(Base):
+    __tablename__ = "catalog_entries"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id = Column(UUID(as_uuid=True), ForeignKey("workspaces.id"))
+    name = Column(String, nullable=False, index=True)
+    description = Column(Text)
+    table_type = Column(String) # table, view, materialized_view
+    source_id = Column(UUID(as_uuid=True), ForeignKey("sources.id"), nullable=True)
+    schema_name = Column(String)
+    row_count = Column(String) # stored as string for large numbers
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    metadata = Column(JSON)
+
+class QualityRule(Base):
+    __tablename__ = "quality_rules"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id = Column(UUID(as_uuid=True), ForeignKey("workspaces.id"))
+    name = Column(String, nullable=False)
+    description = Column(Text)
+    rule_type = Column(String) # completeness, uniqueness, consistency, etc.
+    config = Column(JSON, nullable=False)
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    enabled = Column(Boolean, default=True)
+
+class QualityResult(Base):
+    __tablename__ = "quality_results"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    quality_rule_id = Column(UUID(as_uuid=True), ForeignKey("quality_rules.id"))
+    catalog_entry_id = Column(UUID(as_uuid=True), ForeignKey("catalog_entries.id"))
+    status = Column(String) # passed, warning, failed
+    result = Column(JSON)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    workspace_id = Column(UUID(as_uuid=True), ForeignKey("workspaces.id"), nullable=True)
+    action = Column(String, index=True) # create, update, delete, etc.
+    resource_type = Column(String, index=True)
+    resource_id = Column(UUID(as_uuid=True), nullable=True)
+    details = Column(JSON)
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+class Settings(Base):
+    __tablename__ = "settings"
+    
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    workspace_id = Column(UUID(as_uuid=True), ForeignKey("workspaces.id"), nullable=True)
+    key = Column(String, nullable=False, index=True)
+    value = Column(JSON, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
