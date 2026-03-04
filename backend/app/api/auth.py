@@ -1,17 +1,38 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
 from app.core.database import get_db
 from app.core.security import verify_password, create_access_token, get_password_hash
 from app.models.base import User, UserRole, Workspace, WorkspaceMember, WorkspaceMemberRole
 from jose import JWTError, jwt
 import os
+from datetime import datetime
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 SECRET_KEY = os.getenv("JWT_SECRET", "super-secret-key-change-me")
 ALGORITHM = "HS256"
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
+
+# Pydantic models
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class UserResponse(BaseModel):
+    id: str
+    email: str
+    first_name: str
+    last_name: str
+    role: str
+    
+    class Config:
+        from_attributes = True
 
 async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
@@ -32,8 +53,9 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
         raise credentials_exception
     return user
 
-@router.post("/login")
+@router.post("/login", response_model=Token)
 async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    """Form-based login endpoint (OAuth2 compatible)"""
     user = db.query(User).filter(User.email == form_data.username).first()
     if not user or not verify_password(form_data.password, user.password_hash):
         raise HTTPException(
@@ -41,6 +63,33 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    
+    # Update last login
+    user.last_login = datetime.utcnow()
+    db.commit()
+    
+    access_token = create_access_token(data={"sub": user.email, "role": user.role})
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@router.post("/login/json", response_model=Token)
+async def login_json(credentials: LoginRequest, db: Session = Depends(get_db)):
+    """JSON-based login endpoint (for JavaScript/frontend)"""
+    user = db.query(User).filter(User.email == credentials.email).first()
+    if not user or not verify_password(credentials.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password"
+        )
+    
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User account is inactive"
+        )
+    
+    # Update last login
+    user.last_login = datetime.utcnow()
+    db.commit()
     
     access_token = create_access_token(data={"sub": user.email, "role": user.role})
     return {"access_token": access_token, "token_type": "bearer"}

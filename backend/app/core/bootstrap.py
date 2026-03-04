@@ -11,10 +11,10 @@ def bootstrap_system():
         # Check if any user exists
         user_count = db.query(User).count()
         if user_count > 0:
-            print("System already bootstrapped. Skipping.")
+            print("✅ System already bootstrapped. Skipping.")
             return
 
-        print("Starting system bootstrap...")
+        print("🚀 Starting system bootstrap...")
         
         admin_email = os.getenv("ADMIN_EMAIL", "admin@synkrasis.ai")
         admin_password = os.getenv("ADMIN_PASSWORD", "Admin123!")
@@ -22,9 +22,10 @@ def bootstrap_system():
         admin_last_name = os.getenv("ADMIN_LAST_NAME", "Administrator")
         
         # 1. Create the first admin
+        hashed_pwd = get_password_hash(admin_password)
         new_user = User(
             email=admin_email,
-            password_hash=get_password_hash(admin_password),
+            password_hash=hashed_pwd,
             first_name=admin_first_name,
             last_name=admin_last_name,
             role=UserRole.ADMIN,
@@ -51,7 +52,9 @@ def bootstrap_system():
         db.add(membership)
         
         db.commit()
-        print(f"Bootstrap complete. Admin user created: {admin_email}")
+        print(f"✅ Admin user created: {admin_email}")
+        print(f"✅ Default workspace created")
+        print(f"✅ Bootstrap complete")
         
     except Exception as e:
         db.rollback()

@@ -20,6 +20,13 @@ services:
       - DATABASE_URL=postgresql://sriravi:rootroot@host.docker.internal:5432/auton_meta
       - REDIS_URL=redis://redis:6379
       - DOCKER_ENV=true
+      - ADMIN_EMAIL=admin@synkrasis.ai
+      - ADMIN_PASSWORD=Admin123!
+      - ADMIN_FIRST_NAME=System
+      - ADMIN_LAST_NAME=Administrator
+      - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+      - JWT_ALGORITHM=HS256
+      - JWT_EXPIRATION_MINUTES=1440
     volumes:
       - ../backend:/app
       - /tmp/synkrasis:/tmp/synkrasis
