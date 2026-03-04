@@ -8,13 +8,14 @@ import { toast } from "sonner";
 import Image from "next/image";
 import Link from "next/link";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { usePathname } from "next/navigation";
 import { Settings, ShieldCheck } from "lucide-react";
 
 const routes = [
   {
     label: "Dashboard",
     icon: Home,
-    href: "/sources",
+    href: "/dashboard",
     color: "text-sky-500",
     roles: ["admin", "data_engineer"]
   },
