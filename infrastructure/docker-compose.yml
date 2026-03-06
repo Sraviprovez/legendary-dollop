@@ -20,6 +20,7 @@ services:
       - DATABASE_URL=postgresql://sriravi:rootroot@host.docker.internal:5432/auton_meta
       - REDIS_URL=redis://redis:6379
       - DOCKER_ENV=true
+      - CORS_ORIGINS=http://localhost:3000
       - ADMIN_EMAIL=admin@synkrasis.ai
       - ADMIN_PASSWORD=Admin123!
       - ADMIN_FIRST_NAME=System
