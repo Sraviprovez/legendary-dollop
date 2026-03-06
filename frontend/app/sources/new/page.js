@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Database, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, Database, CheckCircle2, XCircle, Loader2, Search } from "lucide-react";
 import Link from "next/link";
 import axiosClient from "@/lib/axiosClient";
 import { useWorkspaces } from "@/hooks/useWorkspaces";
@@ -26,7 +26,8 @@ export default function NewSourcePage() {
     port: "5432",
     database: "",
     username: "",
-    password: ""
+    password: "",
+    schemas: "public"
   });
 
   const update = (field, value) => setPg(prev => ({ ...prev, [field]: value }));
@@ -54,6 +55,7 @@ export default function NewSourcePage() {
 
   const handleScan = async () => {
     setPreviewSchema(null);
+    setIsTesting(true); // Re-use testing state for loading feedback
     try {
       const payload = { type: "postgresql", connection_details: pg };
       const res = await axiosClient.post("/api/sources/discover-direct", payload);
@@ -62,6 +64,8 @@ export default function NewSourcePage() {
     } catch (e) {
       const msg = e.response?.data?.detail || e.message;
       toast.error("Scan failed", { description: msg });
+    } finally {
+      setIsTesting(false);
     }
   };
 
@@ -137,6 +141,11 @@ export default function NewSourcePage() {
               <Input placeholder="production" value={pg.database} onChange={(e) => update("database", e.target.value)} />
             </div>
             <div className="space-y-2">
+              <Label>Schema (Optional)</Label>
+              <Input placeholder="public, my_schema" value={pg.schemas} onChange={(e) => update("schemas", e.target.value)} />
+              <p className="text-[10px] text-muted-foreground">Comma-separated schemas to scan. Defaults to "public".</p>
+            </div>
+            <div className="space-y-2">
               <Label>Username</Label>
               <Input placeholder="admin" value={pg.username} onChange={(e) => update("username", e.target.value)} />
             </div>
@@ -154,9 +163,14 @@ export default function NewSourcePage() {
               variant={testStatus === "success" ? "default" : "secondary"}
               onClick={handleScan}
               disabled={testStatus !== "success"}
+              className={testStatus === "success" ? "bg-blue-600 hover:bg-blue-700 text-white" : ""}
               title={testStatus === "success" ? "Scan database schemas and tables" : "Test connection to enable scan"}
             >
-              {testStatus === "success" ? "Scan Database" : "Scan Database (test first)"}
+              {testStatus === "success" ? (
+                <><Search className="mr-2 h-4 w-4" /> Scan Database</>
+              ) : (
+                "Scan Database (test first)"
+              )}
             </Button>
             {testStatus === "success" && <CheckCircle2 className="h-5 w-5 text-green-500" />}
             {testStatus === "failure" && <XCircle className="h-5 w-5 text-red-500" />}
@@ -191,11 +205,15 @@ export default function NewSourcePage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {(previewSchema.tables || []).map((t) => (
+                      {[...(previewSchema.tables || []), ...(previewSchema.views || [])].map((t) => (
                         <tr key={`${t.schema}.${t.name}`} className="border-t">
                           <td className="p-2 font-mono">{t.schema}</td>
                           <td className="p-2 font-mono">{t.name}</td>
-                          <td className="p-2">{t.type}</td>
+                          <td className="p-2">
+                            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${t.type === 'view' ? 'bg-blue-500/10 text-blue-500' : 'bg-green-500/10 text-green-500'}`}>
+                              {t.type.toUpperCase()}
+                            </span>
+                          </td>
                           <td className="p-2">{t.columns?.length || 0}</td>
                           <td className="p-2">{t.rowCountDisplay || "unknown"}</td>
                         </tr>

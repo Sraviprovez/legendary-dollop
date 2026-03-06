@@ -279,13 +279,17 @@ def _pg_connect(details: Dict[str, Any]):
     )
     return conn
 
-def _pg_list_tables_and_columns(conn, include_schemas: Optional[List[str]] = None) -> Dict[str, Any]:
+def _pg_list_tables_and_columns(conn, include_schemas: Optional[List[str]] = None, include_samples: bool = False) -> Dict[str, Any]:
     cur = conn.cursor(cursor_factory=RealDictCursor)
     schema_filter = ""
     params: List[Any] = []
-    if include_schemas:
-        schema_filter = "AND table_schema = ANY(%s)"
-        params.append(include_schemas)
+    
+    # Fallback to 'public' if no schemas provided, as requested
+    target_schemas = include_schemas if include_schemas else ["public"]
+    
+    schema_filter = "AND table_schema = ANY(%s)"
+    params.append(target_schemas)
+    
     cur.execute(f"""
         SELECT table_schema, table_name, table_type
         FROM information_schema.tables
@@ -305,26 +309,35 @@ def _pg_list_tables_and_columns(conn, include_schemas: Optional[List[str]] = Non
             ORDER BY ordinal_position
         """, [schema, name])
         cols = cur.fetchall()
-        # Sample data (up to 5 rows)
+        
+        # Sample data (only if requested)
         sample_rows: List[List[Any]] = []
-        try:
-            with conn.cursor() as c2:
-                c2.execute(f'SELECT * FROM "{schema}"."{name}" LIMIT 5')
-                sample_raw = c2.fetchall()
-                sample_rows = [list(map(lambda x: x, r)) for r in sample_raw]
-        except Exception:
-            sample_rows = []
-        # Row count (best-effort)
+        if include_samples:
+            try:
+                with conn.cursor() as c2:
+                    c2.execute(f'SELECT * FROM "{schema}"."{name}" LIMIT 5')
+                    sample_raw = c2.fetchall()
+                    sample_rows = [list(map(lambda x: x, r)) for r in sample_raw]
+            except Exception:
+                sample_rows = []
+        
+        # Row count (fast estimate using pg_class)
         row_count_display = "unknown"
         try:
             with conn.cursor() as c3:
-                c3.execute(f'SELECT COUNT(*) FROM "{schema}"."{name}"')
+                c3.execute("""
+                    SELECT reltuples::bigint 
+                    FROM pg_class c 
+                    JOIN pg_namespace n ON n.oid = c.relnamespace 
+                    WHERE n.nspname = %s AND c.relname = %s
+                """, [schema, name])
                 cnt = c3.fetchone()
-                if cnt and len(cnt) > 0:
+                if cnt and cnt[0] is not None:
                     row_count_display = str(cnt[0])
         except Exception:
             pass
-        result_tables.append({
+            
+        table_data = {
             "schema": schema,
             "name": name,
             "type": "view" if t["table_type"].lower().endswith("view") else "table",
@@ -335,9 +348,12 @@ def _pg_list_tables_and_columns(conn, include_schemas: Optional[List[str]] = Non
                     "type": c["data_type"],
                     "nullable": (c["is_nullable"] == "YES"),
                 } for c in cols
-            ],
-            "sampleData": sample_rows
-        })
+            ]
+        }
+        if include_samples:
+            table_data["sampleData"] = sample_rows
+            
+        result_tables.append(table_data)
     return {"tables": result_tables, "views": [x for x in result_tables if x["type"] == "view"]}
 
 def _persist_catalog_from_pg(db: Session, workspace_id: uuid.UUID, source_id: uuid.UUID, tables: List[Dict[str, Any]]):
@@ -433,8 +449,15 @@ async def discover_source_schema(
     if source.type != "postgresql":
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Schema discovery currently supports PostgreSQL only")
     try:
-        conn = _pg_connect(source.connection_details or {})
-        scan = _pg_list_tables_and_columns(conn)
+        details = source.connection_details or {}
+        conn = _pg_connect(details)
+        
+        # Extract schemas if provided
+        schemas = details.get("schemas")
+        if isinstance(schemas, str):
+            schemas = [s.strip() for s in schemas.split(",") if s.strip()]
+            
+        scan = _pg_list_tables_and_columns(conn, include_schemas=schemas, include_samples=True)
         conn.close()
         schema_cache = {
             "sourceId": str(source_id),
@@ -616,7 +639,13 @@ async def discover_direct(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only PostgreSQL is supported for direct discovery")
     try:
         conn = _pg_connect(details)
-        scan = _pg_list_tables_and_columns(conn)
+        
+        # Extract schemas if provided
+        schemas = details.get("schemas")
+        if isinstance(schemas, str):
+            schemas = [s.strip() for s in schemas.split(",") if s.strip()]
+            
+        scan = _pg_list_tables_and_columns(conn, include_schemas=schemas, include_samples=False)
         conn.close()
         schema_cache = {
             "sourceType": src_type,
