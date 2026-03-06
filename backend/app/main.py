@@ -8,6 +8,7 @@ from app.models.base import Base
 from app.core.database import engine
 from app.core.bootstrap import bootstrap_system
 from contextlib import asynccontextmanager
+import os
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -20,9 +21,10 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="SynKrasis Backend API", version="1.0.0", lifespan=lifespan)
 
 # CORS configuration
+origins = [o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In production, replace with specific origins
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -1,15 +1,17 @@
 """
 Source Management API endpoints.
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
 from sqlalchemy.orm import Session
-from typing import List, Optional, Dict, Any
+from typing import Optional, Dict, Any, List, Tuple
 import uuid
 from datetime import datetime
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 from app.api.deps import get_current_active_user
 from app.core.database import get_db
-from app.models.base import User, Workspace, Source, WorkspaceMember, AuditLog
+from app.models.base import User, Workspace, Source, WorkspaceMember, AuditLog, CatalogEntry
 from app.schemas import (
     SourceCreate, SourceUpdate, SourceResponse, SourceStatusResponse,
     TestConnectionRequest, SuccessResponse
@@ -264,6 +266,101 @@ async def delete_source(
         "data": {"message": "Source deleted successfully"}
     }
 
+# ==================== INTERNAL HELPERS ====================
+
+def _pg_connect(details: Dict[str, Any]):
+    conn = psycopg2.connect(
+        host=details.get("host"),
+        port=int(details.get("port", 5432)),
+        dbname=details.get("database") or details.get("dbName"),
+        user=details.get("username") or details.get("user"),
+        password=details.get("password"),
+        connect_timeout=5,
+    )
+    return conn
+
+def _pg_list_tables_and_columns(conn, include_schemas: Optional[List[str]] = None) -> Dict[str, Any]:
+    cur = conn.cursor(cursor_factory=RealDictCursor)
+    schema_filter = ""
+    params: List[Any] = []
+    if include_schemas:
+        schema_filter = "AND table_schema = ANY(%s)"
+        params.append(include_schemas)
+    cur.execute(f"""
+        SELECT table_schema, table_name, table_type
+        FROM information_schema.tables
+        WHERE table_schema NOT IN ('pg_catalog','information_schema')
+        {schema_filter}
+        ORDER BY table_schema, table_name
+    """, params)
+    tables = cur.fetchall()
+    result_tables = []
+    for t in tables:
+        schema = t["table_schema"]
+        name = t["table_name"]
+        cur.execute("""
+            SELECT column_name, data_type, is_nullable
+            FROM information_schema.columns
+            WHERE table_schema = %s AND table_name = %s
+            ORDER BY ordinal_position
+        """, [schema, name])
+        cols = cur.fetchall()
+        # Sample data (up to 5 rows)
+        sample_rows: List[List[Any]] = []
+        try:
+            with conn.cursor() as c2:
+                c2.execute(f'SELECT * FROM "{schema}"."{name}" LIMIT 5')
+                sample_raw = c2.fetchall()
+                sample_rows = [list(map(lambda x: x, r)) for r in sample_raw]
+        except Exception:
+            sample_rows = []
+        # Row count (best-effort)
+        row_count_display = "unknown"
+        try:
+            with conn.cursor() as c3:
+                c3.execute(f'SELECT COUNT(*) FROM "{schema}"."{name}"')
+                cnt = c3.fetchone()
+                if cnt and len(cnt) > 0:
+                    row_count_display = str(cnt[0])
+        except Exception:
+            pass
+        result_tables.append({
+            "schema": schema,
+            "name": name,
+            "type": "view" if t["table_type"].lower().endswith("view") else "table",
+            "rowCountDisplay": row_count_display,
+            "columns": [
+                {
+                    "name": c["column_name"],
+                    "type": c["data_type"],
+                    "nullable": (c["is_nullable"] == "YES"),
+                } for c in cols
+            ],
+            "sampleData": sample_rows
+        })
+    return {"tables": result_tables, "views": [x for x in result_tables if x["type"] == "view"]}
+
+def _persist_catalog_from_pg(db: Session, workspace_id: uuid.UUID, source_id: uuid.UUID, tables: List[Dict[str, Any]]):
+    # Remove previous catalog entries for this source
+    db.query(CatalogEntry).filter(CatalogEntry.source_id == source_id).delete()
+    now = datetime.utcnow()
+    for t in tables:
+        meta_columns = [{"name": c["name"], "type": c["type"], "nullable": c.get("nullable", True)} for c in t.get("columns", [])]
+        ce = CatalogEntry(
+            workspace_id=workspace_id,
+            name=f'{t.get("schema")}.{t.get("name")}',
+            description=None,
+            table_type=t.get("type", "table"),
+            source_id=source_id,
+            schema_name=t.get("schema"),
+            row_count=t.get("rowCountDisplay", "unknown"),
+            catalog_metadata={"columns": meta_columns},
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(ce)
+    db.commit()
+
 # ==================== SOURCE OPERATIONS ====================
 
 @router.post("/{source_id}/test-connection", response_model=SuccessResponse)
@@ -291,17 +388,22 @@ async def test_source_connection(
             detail="Access denied"
         )
     
-    # TODO: Implement actual connection testing
-    # This would call the appropriate client based on source.type
-    
-    return {
-        "success": True,
-        "data": {
-            "source_id": str(source_id),
-            "status": "connected",
-            "message": "Connection test successful"
-        }
-    }
+    if source.type == "postgresql":
+        try:
+            conn = _pg_connect(source.connection_details or {})
+            conn.close()
+            return {
+                "success": True,
+                "data": {
+                    "source_id": str(source_id),
+                    "status": "connected",
+                    "message": "Connection test successful"
+                }
+            }
+        except Exception as e:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"PostgreSQL connection failed: {str(e)}")
+    else:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported source type for connection test")
 
 @router.post("/{source_id}/discover-schema", response_model=SuccessResponse)
 async def discover_source_schema(
@@ -328,20 +430,31 @@ async def discover_source_schema(
             detail="Access denied"
         )
     
-    # TODO: Implement schema discovery
-    # This would use Airbyte or direct connection
-    
-    schema_cache = {
-        "tables": [],
-        "discovered_at": datetime.utcnow().isoformat()
-    }
-    source.schema_cache = schema_cache
-    db.commit()
-    
-    return {
-        "success": True,
-        "data": schema_cache
-    }
+    if source.type != "postgresql":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Schema discovery currently supports PostgreSQL only")
+    try:
+        conn = _pg_connect(source.connection_details or {})
+        scan = _pg_list_tables_and_columns(conn)
+        conn.close()
+        schema_cache = {
+            "sourceId": str(source_id),
+            "sourceType": source.type,
+            "sourceName": source.name,
+            "tables": [t for t in scan["tables"] if t["type"] == "table"],
+            "views": [t for t in scan["tables"] if t["type"] == "view"],
+            "discovered_at": datetime.utcnow().isoformat()
+        }
+        source.schema_cache = schema_cache
+        db.commit()
+        _persist_catalog_from_pg(db, source.workspace_id, source.id, scan["tables"])
+        return {
+            "success": True,
+            "data": schema_cache
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Schema discovery failed: {str(e)}")
 
 @router.get("/{source_id}/schema", response_model=SuccessResponse)
 async def get_source_schema(
@@ -470,3 +583,51 @@ async def get_source_status(
         "success": True,
         "data": status_data
     }
+
+# ==================== DIRECT UTILITIES ====================
+
+@router.post("/test-direct", response_model=SuccessResponse)
+async def test_connection_direct(
+    payload: Dict[str, Any] = Body(...),
+    current_user: User = Depends(get_current_active_user),
+):
+    src_type = payload.get("type")
+    details = payload.get("connection_details") or {}
+    if src_type != "postgresql":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only PostgreSQL is supported for direct test")
+    try:
+        conn = _pg_connect(details)
+        conn.close()
+        return {
+            "success": True,
+            "data": {"status": "connected", "message": "Connection test successful"}
+        }
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"PostgreSQL connection failed: {str(e)}")
+
+@router.post("/discover-direct", response_model=SuccessResponse)
+async def discover_direct(
+    payload: Dict[str, Any] = Body(...),
+    current_user: User = Depends(get_current_active_user),
+):
+    src_type = payload.get("type")
+    details = payload.get("connection_details") or {}
+    if src_type != "postgresql":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only PostgreSQL is supported for direct discovery")
+    try:
+        conn = _pg_connect(details)
+        scan = _pg_list_tables_and_columns(conn)
+        conn.close()
+        schema_cache = {
+            "sourceType": src_type,
+            "sourceName": details.get("database"),
+            "tables": [t for t in scan["tables"] if t["type"] == "table"],
+            "views": [t for t in scan["tables"] if t["type"] == "view"],
+            "discovered_at": datetime.utcnow().isoformat()
+        }
+        return {
+            "success": True,
+            "data": schema_cache
+        }
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Discovery failed: {str(e)}")

@@ -14,8 +14,8 @@ import { toast } from "sonner";
 export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
-  const [email, setEmail] = useState("admin@synkrasis.ai");
-  const [password, setPassword] = useState("changeme123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isSettingUp, setIsSettingUp] = useState(false);
 
@@ -80,9 +80,6 @@ export default function LoginPage() {
               placeholder="Enter your password"
               className="bg-background"
             />
-          </div>
-          <div className="text-sm text-muted-foreground text-center">
-            Demo credentials: admin / admin
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-4">

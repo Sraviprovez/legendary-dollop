@@ -1,9 +1,10 @@
 """
 Pydantic schemas for request/response validation across all APIs.
 """
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List, Any, Dict
 from datetime import datetime
+from uuid import UUID
 
 # ==================== PAGINATION & COMMON ====================
 
@@ -35,7 +36,7 @@ class UserUpdate(BaseModel):
     is_active: Optional[bool] = None
 
 class UserResponse(BaseModel):
-    id: str
+    id: UUID
     email: str
     first_name: Optional[str] = None
     last_name: Optional[str] = None
@@ -44,11 +45,10 @@ class UserResponse(BaseModel):
     created_at: datetime
     last_login: Optional[datetime] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class UserActivityResponse(BaseModel):
-    id: str
+    id: UUID
     email: str
     last_login: Optional[datetime] = None
     created_at: datetime
@@ -57,20 +57,19 @@ class UserActivityResponse(BaseModel):
 # ==================== WORKSPACE ====================
 
 class WorkspaceMemberCreate(BaseModel):
-    user_id: str
+    user_id: UUID
     role: str = "viewer"
 
 class WorkspaceMemberUpdate(BaseModel):
     role: str
 
 class WorkspaceMemberResponse(BaseModel):
-    user_id: str
-    workspace_id: str
+    user_id: UUID
+    workspace_id: UUID
     role_in_workspace: str
     joined_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class WorkspaceCreate(BaseModel):
     name: str
@@ -82,16 +81,15 @@ class WorkspaceUpdate(BaseModel):
     settings: Optional[Dict] = None
 
 class WorkspaceResponse(BaseModel):
-    id: str
+    id: UUID
     name: str
     description: Optional[str] = None
-    created_by: str
+    created_by: UUID
     created_at: datetime
     settings: Optional[Dict] = None
     member_count: int = 0
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # ==================== SOURCE ====================
 
@@ -108,21 +106,20 @@ class SourceUpdate(BaseModel):
     is_private: Optional[bool] = None
 
 class SourceResponse(BaseModel):
-    id: str
+    id: UUID
     name: str
     type: str
-    workspace_id: str
-    created_by: str
+    workspace_id: UUID
+    created_by: UUID
     created_at: datetime
     is_private: bool
     schema_cache: Optional[Dict] = None
     airbyte_source_id: Optional[str] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class SourceStatusResponse(BaseModel):
-    source_id: str
+    source_id: UUID
     status: str
     last_sync: Optional[datetime] = None
     tables_count: int = 0
@@ -149,10 +146,10 @@ class PipelineUpdate(BaseModel):
     is_private: Optional[bool] = None
 
 class PipelineResponse(BaseModel):
-    id: str
+    id: UUID
     name: str
-    workspace_id: str
-    created_by: str
+    workspace_id: UUID
+    created_by: UUID
     created_at: datetime
     updated_at: datetime
     config: Dict[str, Any]
@@ -160,26 +157,24 @@ class PipelineResponse(BaseModel):
     is_private: bool
     visibility: str
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class PipelineForkRequest(BaseModel):
     new_name: str
 
 class PipelineVersionResponse(BaseModel):
-    id: str
-    pipeline_id: str
+    id: UUID
+    pipeline_id: UUID
     version: str
     config: Dict[str, Any]
-    created_by: str
+    created_by: UUID
     created_at: datetime
     description: Optional[str] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class PipelinePermissionUpdate(BaseModel):
-    user_id: Optional[str] = None
+    user_id: Optional[UUID] = None
     role: Optional[str] = None
     role_type: Optional[str] = None  # user or role
 
@@ -187,22 +182,21 @@ class PipelineRunCreate(BaseModel):
     pass
 
 class PipelineRunResponse(BaseModel):
-    id: str
-    pipeline_id: str
+    id: UUID
+    pipeline_id: UUID
     status: str
     started_at: Optional[datetime] = None
     ended_at: Optional[datetime] = None
     created_at: datetime
-    created_by: str
+    created_by: UUID
     error_message: Optional[str] = None
     metrics: Optional[Dict] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class PipelineRunMetricsResponse(BaseModel):
-    run_id: str
-    pipeline_id: str
+    run_id: UUID
+    pipeline_id: UUID
     status: str
     duration_seconds: Optional[float] = None
     rows_processed: Optional[int] = None
@@ -219,20 +213,19 @@ class CatalogEntryCreate(BaseModel):
     schema_name: Optional[str] = None
 
 class CatalogEntryResponse(BaseModel):
-    id: str
-    workspace_id: str
+    id: UUID
+    workspace_id: UUID
     name: str
     description: Optional[str] = None
     table_type: Optional[str] = None
-    source_id: Optional[str] = None
+    source_id: Optional[UUID] = None
     schema_name: Optional[str] = None
     row_count: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     metadata: Optional[Dict] = None
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ColumnInfo(BaseModel):
     name: str
@@ -241,7 +234,7 @@ class ColumnInfo(BaseModel):
     description: Optional[str] = None
 
 class CatalogTableDetailResponse(BaseModel):
-    id: str
+    id: UUID
     name: str
     description: Optional[str] = None
     columns: List[ColumnInfo]
@@ -266,29 +259,27 @@ class QualityRuleUpdate(BaseModel):
     enabled: Optional[bool] = None
 
 class QualityRuleResponse(BaseModel):
-    id: str
-    workspace_id: str
+    id: UUID
+    workspace_id: UUID
     name: str
     description: Optional[str] = None
     rule_type: str
     config: Dict[str, Any]
-    created_by: str
+    created_by: UUID
     created_at: datetime
     enabled: bool
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class QualityResultResponse(BaseModel):
-    id: str
-    quality_rule_id: str
-    catalog_entry_id: str
+    id: UUID
+    quality_rule_id: UUID
+    catalog_entry_id: UUID
     status: str
     result: Dict[str, Any]
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class QualityDashboardResponse(BaseModel):
     total_rules: int
@@ -300,8 +291,8 @@ class QualityDashboardResponse(BaseModel):
     recent_results: List[QualityResultResponse]
 
 class AnomalyResponse(BaseModel):
-    id: str
-    catalog_entry_id: str
+    id: UUID
+    catalog_entry_id: UUID
     anomaly_type: str
     severity: str
     description: str
@@ -310,14 +301,14 @@ class AnomalyResponse(BaseModel):
 # ==================== LINEAGE ====================
 
 class LineageNodeResponse(BaseModel):
-    id: str
+    id: UUID
     name: str
-    type: str  # table, pipeline, etc.
-    workspace_id: Optional[str] = None
+    type: str
+    workspace_id: Optional[UUID] = None
 
 class LineageEdgeResponse(BaseModel):
-    source_id: str
-    target_id: str
+    source_id: UUID
+    target_id: UUID
     relationship: str
 
 class LineageGraphResponse(BaseModel):
@@ -325,15 +316,15 @@ class LineageGraphResponse(BaseModel):
     edges: List[LineageEdgeResponse]
 
 class ColumnLineageResponse(BaseModel):
-    table_id: str
+    table_id: UUID
     column_name: str
     lineage: LineageGraphResponse
 
 class ImpactAnalysisResponse(BaseModel):
-    node_id: str
+    node_id: UUID
     downstream_nodes: List[LineageNodeResponse]
-    affected_pipelines: List[str]
-    affected_tables: List[str]
+    affected_pipelines: List[UUID]
+    affected_tables: List[UUID]
 
 # ==================== SETTINGS ====================
 
@@ -345,31 +336,29 @@ class SettingUpdate(BaseModel):
     value: Any
 
 class SettingResponse(BaseModel):
-    id: str
+    id: UUID
     key: str
     value: Any
     created_at: datetime
     updated_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class IntegrationConfig(BaseModel):
     type: str
     config: Dict[str, Any]
 
 class AuditLogResponse(BaseModel):
-    id: str
-    user_id: str
-    workspace_id: Optional[str] = None
+    id: UUID
+    user_id: UUID
+    workspace_id: Optional[UUID] = None
     action: str
     resource_type: str
-    resource_id: Optional[str] = None
+    resource_id: Optional[UUID] = None
     details: Optional[Dict] = None
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # ==================== METRICS ====================
 
@@ -383,7 +372,7 @@ class SystemMetricsResponse(BaseModel):
     timestamp: datetime
 
 class PipelineMetricsResponse(BaseModel):
-    pipeline_id: str
+    pipeline_id: UUID
     total_runs: int
     successful_runs: int
     failed_runs: int

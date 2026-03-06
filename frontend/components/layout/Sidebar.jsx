@@ -133,7 +133,13 @@ export function Sidebar() {
       <div className="px-3 py-2 flex-1">
         <Link href="/sources" className="flex items-center pl-3 mb-8">
           <div className="relative h-8 w-8 mr-2 overflow-hidden rounded-md">
-            <Image src="/logo.png" alt="Logo" fill className="object-cover" />
+            <Image
+              src="/logo.png"
+              alt="Logo"
+              fill
+              sizes="(max-width: 768px) 32px, 32px"
+              className="object-cover"
+            />
           </div>
           <h1 className="text-xl font-bold">SynKrasis.ai</h1>
         </Link>

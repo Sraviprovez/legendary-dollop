@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
+from uuid import UUID
 from app.core.database import get_db
 from app.core.security import verify_password, create_access_token, get_password_hash
 from app.models.base import User, UserRole, Workspace, WorkspaceMember, WorkspaceMemberRole
@@ -25,14 +26,13 @@ class Token(BaseModel):
     token_type: str
 
 class UserResponse(BaseModel):
-    id: str
+    id: UUID
     email: str
     first_name: str
     last_name: str
     role: str
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
@@ -118,7 +118,7 @@ async def register(db: Session = Depends(get_db)):
         )
     
     admin_email = os.getenv("ADMIN_EMAIL", "admin@synkrasis.ai")
-    admin_password = os.getenv("ADMIN_PASSWORD", "changeme123")
+    admin_password = os.getenv("ADMIN_PASSWORD", "Admin123!")
     
     # Create the first admin
     new_user = User(
